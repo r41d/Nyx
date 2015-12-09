@@ -1,35 +1,9 @@
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 #include "ipv4.h"
-
-/*
-typedef struct { // groups of 4 bytes each
-
-	uint8_t version; // 4 bits
-	uint8_t ihl; // 4 bits
-	uint8_t tos; // 8 bits
-	uint16_t length; // 16 bits
-
-	uint16_t identification; // 16 bits
-	_Bool flag_0;  //reserved, must be 0 (1 bit)
-	_Bool flag_df; // Don't Fragment (1 bit)
-	_Bool flag_mr; // More Fragments (1 bit)
-	uint16_t fragment_offset; // 13 bits
-
-	uint8_t ttl; // 8 bits
-	uint8_t protocol; // 8 bits
-	uint16_t checksum; // 16 bits
-
-	uint32_t src_addr; // 32 bits
-
-	uint32_t dest_addr; // 32 bits
-
-	uint8_t optional[40]; // 40 additional bytes at maximum
-
-} ipv4_header;
-*/
 
 
 int get_header_size(const ipv4_header* header) {
@@ -89,9 +63,9 @@ ipv4_header* assemble_ipv4_header(uint16_t payload_length, uint32_t src, uint32_
 	v4header->tos = 0b00000000;
 	v4header->length = payload_length;
 	v4header->identification = ident;
-	v4header->flag_0 = 0b0;
-	v4header->flag_df = 0b0;
-	v4header->flag_mr = 0b0;
+	v4header->flag_0 = false;
+	v4header->flag_df = false;
+	v4header->flag_mr = false;
 	v4header->fragment_offset = 0b0000000000000;
 	v4header->ttl = 54; // Always 54
 	v4header->protocol = 6; // 6 = TCP

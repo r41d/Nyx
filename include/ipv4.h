@@ -3,19 +3,20 @@
 #define __IPv4_H__
 
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct { // groups of 4 bytes each
 
-	uint8_t version; // 4 bits
-	uint8_t ihl; // 4 bits // IP Header Length // IHL = HeaderLength(bytes) / 4
+	uint8_t version : 4; // 4 bits
+	uint8_t ihl : 4; // 4 bits // IP Header Length // IHL = HeaderLength(bytes) / 4
 	uint8_t tos; // 8 bits
 	uint16_t length; // 16 bits
 
 	uint16_t identification; // 16 bits
-	_Bool flag_0;  //reserved, must be 0 (1 bit)
-	_Bool flag_df; // Don't Fragment (1 bit)
-	_Bool flag_mr; // More Fragments (1 bit)
-	uint16_t fragment_offset; // 13 bits
+	bool flag_0 : 1;  //reserved, must be 0 (1 bit)
+	bool flag_df : 1; // Don't Fragment (1 bit)
+	bool flag_mr : 1; // More Fragments (1 bit)
+	uint16_t fragment_offset : 13; // 13 bits
 
 	uint8_t ttl; // 8 bits
 	uint8_t protocol; // 8 bits
