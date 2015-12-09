@@ -7,7 +7,7 @@
 typedef struct { // groups of 4 bytes each
 
 	uint8_t version; // 4 bits
-	uint8_t ihl; // 4 bits
+	uint8_t ihl; // 4 bits // IP Header Length // IHL = HeaderLength(bytes) / 4
 	uint8_t tos; // 8 bits
 	uint16_t length; // 16 bits
 

@@ -1,0 +1,70 @@
+#include <stdlib.h>
+#include <stdint.h>
+#include <stddef.h>
+#include <string.h>
+#include "tcp.h"
+
+/*
+typedef struct { // groups of 4 bytes each
+
+	uint16_t src_port; // 16 bit
+	uint16_t dest_port; // 16 bit
+
+	uint32_t seq_num; // 32 bit
+
+	uint32_t ack_num; // 32 bit
+
+	uint8_t data_offset; // 4 bit
+	// 6 reserved bits
+	_Bool urg; // 1 bit
+	_Bool ack; // 1 bit
+	_Bool psh; // 1 bit
+	_Bool rst; // 1 bit
+	_Bool syn; // 1 bit
+	_Bool fin; // 1 bit
+	uint16_t window; // 16 bit
+
+	uint16_t checksum; // 16 bit
+	uint16_t urgent_pointer; // 16 bit
+
+	uint32_t* options; // zero or more 32-bit-words
+
+} tcp_header;
+*/
+
+void serialize_tcp (char* buf, const tcp_header* header) {
+    memcpy(&buf[0], &header->src_port, sizeof(uint16_t));
+    memcpy(&buf[2], &header->dest_port, sizeof(uint16_t));
+    memcpy(&buf[4], &header->seq_num, sizeof(uint32_t));
+    memcpy(&buf[8], &header->ack_num, sizeof(uint32_t));
+    uint8_t dat_off = header->data_offset << 4;
+    memcpy(&buf[12], &dat_off, sizeof(uint8_t));
+    uint8_t flags = 0b00000000
+                  | header->urg << 5
+                  | header->ack << 4
+                  | header->psh << 3
+                  | header->rst << 2
+                  | header->syn << 1
+                  | header->fin;
+    memcpy(&buf[13], &flags, sizeof(uint8_t));
+    memcpy(&buf[14], &header->window, sizeof(uint16_t));
+    memcpy(&buf[16], &header->checksum, sizeof(uint16_t));
+    memcpy(&buf[18], &header->urgent_pointer, sizeof(uint16_t));
+	// optional
+}
+
+void deserialize_tcp (tcp_header* header, const char* buf) {
+    memcpy(&header->src_port, &buf[0], sizeof(uint16_t));
+    memcpy(&header->dest_port, &buf[2], sizeof(uint16_t));
+    memcpy(&header->seq_num, &buf[4], sizeof(uint32_t));
+    memcpy(&header->ack_num, &buf[8], sizeof(uint32_t));
+    header->data_offset = buf[12] >> 4;
+    header->urg = (buf[13] & 0b00100000) >> 5;
+    header->ack = (buf[13] & 0b00010000) >> 4;
+    header->psh = (buf[13] & 0b00001000) >> 3;
+    header->rst = (buf[13] & 0b00000100) >> 2;
+    header->syn = (buf[13] & 0b00000010) >> 1;
+    header->fin = (buf[13] & 0b00000001);
+    memcpy(&header->window, &buf[14], sizeof(uint16_t));
+    memcpy(&header->checksum, &buf[16], sizeof(uint16_t));
+    memcpy(&header->urgent_pointer, &buf[18], sizeof(uint16_t));}

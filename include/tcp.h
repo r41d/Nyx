@@ -14,7 +14,8 @@ typedef struct { // groups of 4 bytes each
 	uint32_t ack_num; // 32 bit
 
 	uint8_t data_offset; // 4 bit
-	// 6 reserved bits
+	// 4 reserved bits
+	// 2 reserved bits
 	_Bool urg; // 1 bit
 	_Bool ack; // 1 bit
 	_Bool psh; // 1 bit

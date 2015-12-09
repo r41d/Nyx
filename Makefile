@@ -1,3 +1,9 @@
+#  ______   _______ _____    ___  ____  ____  _____ ____  _ _ _
+# | __ ) \ / /_   _| ____|  / _ \|  _ \|  _ \| ____|  _ \| | | |
+# |  _ \\ V /  | | |  _|   | | | | |_) | | | |  _| | |_) | | | |
+# | |_) || |   | | | |___  | |_| |  _ <| |_| | |___|  _ <|_|_|_|
+# |____/ |_|   |_| |_____|  \___/|_| \_\____/|_____|_| \_(_|_|_)
+#
 CC := gcc
 CFLAGS := -g -Wall -Wextra -std=c99
 
@@ -14,11 +20,11 @@ LIB := -lm
 INC := -I $(INCLUDEDIR)
 
 $(TARGET): $(OBJECTS)
-	@echo " Linking and building $@..."
+	@echo "-- Linking and building $@..."
 	$(CC) $(CFLAGS) $(LIB) -o $@ $^
 
 $(BUILDDIR)/%.o: $(SRCDIR)/%.c
-	@echo " Compiling $@..."
+	@echo "-- Compiling $@..."
 	$(CC) -c $(CLFAGS) $(INC) $(LIB) -o $@ $<
 
 indent:
@@ -26,7 +32,7 @@ indent:
 
 clean:
 	rm $(BUILDDIR)/*.o
-	rm $(EXEDIR)/*
+	rm $(TARGET)
 
 print:
 	echo $(SOURCES)
