@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "ipv4.h"
 
 /*
@@ -55,7 +56,7 @@ void deserialize (ipv4_header* header, const char* buf) {
 	memcpy(&(header->tos), &buf[1], sizeof(uint8_t));
 	memcpy(&(header->length), &buf[2], sizeof(uint16_t));
 	memcpy(&(header->identification), &buf[4], sizeof(uint16_t));
-	
+
 	header->flag_0 = buf[6] & 0b10000000;
 	header->flag_df; buf[6] & 0b01000000; // Don't Fragment (1 bit)
 	header->flag_mr; buf[6] & 0b00100000; // More Fragments (1 bit)
@@ -77,4 +78,3 @@ ipv4_header* assemble_ipv4_header(src, dest) {
 	// ...
 	return null;
 }
-

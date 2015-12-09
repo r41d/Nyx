@@ -2,6 +2,8 @@
 #ifndef __TCP_H__
 #define __TCP_H__
 
+#include <stdint.h>
+
 typedef struct { // groups of 4 bytes each
 
 	uint16_t src_port; // 16 bit
@@ -29,4 +31,3 @@ typedef struct { // groups of 4 bytes each
 } tcp_header;
 
 #endif
-

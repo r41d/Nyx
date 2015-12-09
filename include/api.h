@@ -2,6 +2,8 @@
 #ifndef __API_H__
 #define __API_H__
 
+#include <stdint.h>
+
 /*
 Beschreibung
   accept() versucht einen TCP port für die ipaddress zu öffnen.
@@ -48,5 +50,3 @@ void close(int fd);
 
 
 #endif
-
-

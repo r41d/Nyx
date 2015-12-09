@@ -2,6 +2,8 @@
 #ifndef __IPv4_H__
 #define __IPv4_H__
 
+#include <stdint.h>
+
 typedef struct { // groups of 4 bytes each
 
 	uint8_t version; // 4 bits
@@ -28,4 +30,3 @@ typedef struct { // groups of 4 bytes each
 } ipv4_header;
 
 #endif
-
