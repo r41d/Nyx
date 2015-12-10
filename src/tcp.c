@@ -6,10 +6,10 @@
 #include "tcp.h"
 
 void serialize_tcp (char* buf, const tcp_header_t* header) {
-    buf[0] = ntohs(header->src_port);
-    buf[2] = ntohs(header->dest_port);
-    buf[4] = ntohl(header->seq_num);
-    buf[8] = ntohl(header->ack_num);
+    buf[0] = htons(header->src_port);
+    buf[2] = htons(header->dest_port);
+    buf[4] = htonl(header->seq_num);
+    buf[8] = htonl(header->ack_num);
     buf[12] = ( header->data_offset );
     buf[13] = 0b00000000
              | header->urg << 5
@@ -18,9 +18,9 @@ void serialize_tcp (char* buf, const tcp_header_t* header) {
              | header->rst << 2
              | header->syn << 1
              | header->fin;
-    buf[14] = ntohs(header->window);
-    buf[16] = ntohs(header->checksum);
-    buf[18] = ntohs(header->urgent_pointer);
+    buf[14] = htons(header->window);
+    buf[16] = htons(header->checksum);
+    buf[18] = htons(header->urgent_pointer);
 	// optional
 }
 
