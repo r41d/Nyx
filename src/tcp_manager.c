@@ -13,11 +13,3 @@ int tcp_manager_initialize() {
 int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
 
 }
-
-
-
-
-
-int main() {
-    return 0;
-}
