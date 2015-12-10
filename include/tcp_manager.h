@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef enum {
     LISTEN,
@@ -22,8 +23,10 @@ typedef struct {
     uint32_t remote_ipaddr;
     uint16_t remote_port;
     tcp_conn_state_t stat;
+    struct tcp_conn_t* next;
 } tcp_conn_t;
 
 typedef struct {
-    tcp_conn_t connections[10]; // 10 connections max for the moment
+    bool ready;
+    tcp_conn_t* connections; // linked list
 } tcp_state_t;

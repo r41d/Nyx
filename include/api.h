@@ -1,6 +1,4 @@
-
-#ifndef __API_H__
-#define __API_H__
+#pragma once
 
 #include <stdint.h>
 
@@ -47,6 +45,3 @@ Rückgabewert
   Keiner.
 */
 void nyx_close(int fd);
-
-
-#endif
