@@ -1,35 +1,34 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include "tcp.h"
 
 void serialize_tcp (char* buf, const tcp_header_t* header) {
-    memcpy(&buf[0], &header->src_port, sizeof(uint16_t));
-    memcpy(&buf[2], &header->dest_port, sizeof(uint16_t));
-    memcpy(&buf[4], &header->seq_num, sizeof(uint32_t));
-    memcpy(&buf[8], &header->ack_num, sizeof(uint32_t));
-    uint8_t dat_off = header->data_offset << 4;
-    memcpy(&buf[12], &dat_off, sizeof(uint8_t));
-    uint8_t flags = 0b00000000
-                  | header->urg << 5
-                  | header->ack << 4
-                  | header->psh << 3
-                  | header->rst << 2
-                  | header->syn << 1
-                  | header->fin;
-    memcpy(&buf[13], &flags, sizeof(uint8_t));
-    memcpy(&buf[14], &header->window, sizeof(uint16_t));
-    memcpy(&buf[16], &header->checksum, sizeof(uint16_t));
-    memcpy(&buf[18], &header->urgent_pointer, sizeof(uint16_t));
+    buf[0] = ntohs(header->src_port);
+    buf[2] = ntohs(header->dest_port);
+    buf[4] = ntohl(header->seq_num);
+    buf[8] = ntohl(header->ack_num);
+    buf[12] = ( header->data_offset );
+    buf[13] = 0b00000000
+             | header->urg << 5
+             | header->ack << 4
+             | header->psh << 3
+             | header->rst << 2
+             | header->syn << 1
+             | header->fin;
+    buf[14] = ntohs(header->window);
+    buf[16] = ntohs(header->checksum);
+    buf[18] = ntohs(header->urgent_pointer);
 	// optional
 }
 
 void deserialize_tcp (tcp_header_t* header, const char* buf) {
-    memcpy(&header->src_port, &buf[0], sizeof(uint16_t));
-    memcpy(&header->dest_port, &buf[2], sizeof(uint16_t));
-    memcpy(&header->seq_num, &buf[4], sizeof(uint32_t));
-    memcpy(&header->ack_num, &buf[8], sizeof(uint32_t));
+    header->src_port = ntohs(*((uint16_t*) &buf[0]));
+    header->dest_port = ntohs(*((uint16_t*) &buf[2]));
+    header->seq_num = ntohl(*((uint32_t*) &buf[4]));
+    header->ack_num = ntohl(*((uint32_t*) &buf[8]));
     header->data_offset = buf[12] >> 4;
     header->urg = (buf[13] & 0b00100000) >> 5;
     header->ack = (buf[13] & 0b00010000) >> 4;
@@ -37,9 +36,9 @@ void deserialize_tcp (tcp_header_t* header, const char* buf) {
     header->rst = (buf[13] & 0b00000100) >> 2;
     header->syn = (buf[13] & 0b00000010) >> 1;
     header->fin = (buf[13] & 0b00000001);
-    memcpy(&header->window, &buf[14], sizeof(uint16_t));
-    memcpy(&header->checksum, &buf[16], sizeof(uint16_t));
-    memcpy(&header->urgent_pointer, &buf[18], sizeof(uint16_t));
+    header->window = ntohs(*((uint16_t*) &buf[14]));
+    header->checksum = ntohs(*((uint16_t*) &buf[16]));
+    header->urgent_pointer = ntohs(*((uint16_t*) &buf[18]));
 }
 
 void dump_tcp_header (tcp_header_t* header) {
