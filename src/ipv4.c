@@ -33,9 +33,9 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	header->length = ntohs( *((uint16_t*) &buf[2]));
 	header->identification = ntohs( *((uint16_t*) &buf[4]));
 
-	header->flag_0 = (buf[6] & 0b10000000) >> 7 ;
-	header->flag_df; (buf[6] & 0b01000000) >> 6 ;
-	header->flag_mr; (buf[6] & 0b00100000) >> 5 ;
+	header->flag_0 = (buf[6] >> 7) & 0b1;
+	header->flag_df = (buf[6] >> 6) & 0b1;
+	header->flag_mr = (buf[6] >> 5) & 0b1;
 	header->fragment_offset = (buf[6] & 0b00011111) << 8 + buf[7]; // ???
 	header->ttl = buf[8];
 	header->protocol = buf[9];
@@ -64,7 +64,6 @@ void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4-Protocol:   %d\n", header->protocol);
 	printf("IPv4-Checksum:   %d\n", header->checksum);
 	printf("IPv4-SrcAddr:    %d\n", header->src_addr);
-	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
 	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
 	//uint8_t optional[40]; // 40 additional bytes at maximum
 }
