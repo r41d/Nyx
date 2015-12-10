@@ -6,11 +6,11 @@
 #include "ipv4.h"
 
 
-int get_header_size(const ipv4_header* header) {
+int get_header_size(const ipv4_header_t* header) {
 	// return ... ;
 }
 
-void serialize_ipv4 (char* buf, const ipv4_header* header) {
+void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
 	uint8_t version_ihl = header->version << 4 | header->ihl;
 	memcpy(&buf[0], &version_ihl, sizeof(uint8_t));
 	memcpy(&buf[1], &header->tos, sizeof(uint8_t));
@@ -29,7 +29,7 @@ void serialize_ipv4 (char* buf, const ipv4_header* header) {
 	// optional
 }
 
-void deserialize_ipv4 (ipv4_header* header, const char* buf) {
+void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	header->version = buf[0] >> 4;
 	header->ihl = buf[0] % (1<<4);
 	memcpy(&header->tos, &buf[1], sizeof(uint8_t));
@@ -52,8 +52,8 @@ void deserialize_ipv4 (ipv4_header* header, const char* buf) {
 	//}
 }
 
-ipv4_header* assemble_ipv4_header(uint16_t payload_length, uint32_t src, uint32_t dest) {
-	ipv4_header* v4header = (ipv4_header*) malloc(sizeof(ipv4_header));
+ipv4_header_t* assemble_ipv4_header_t(uint16_t payload_length, uint32_t src, uint32_t dest) {
+	ipv4_header_t* v4header = (ipv4_header_t*) malloc(sizeof(ipv4_header_t));
 
 	static int ident = 0;
 	ident += 1;

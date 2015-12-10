@@ -32,8 +32,6 @@ indent:
 
 clean:
 	rm $(BUILDDIR)/*.o
-	rm $(TARGET)
+	#rm $(TARGET)
 
-print:
-	echo $(SOURCES)
-	echo $(OBJECTS)
+force: clean $(TARGET)

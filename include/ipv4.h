@@ -28,6 +28,6 @@ typedef struct { // groups of 4 bytes each
 
 	uint8_t optional[40]; // 40 additional bytes at maximum
 
-} ipv4_header;
+} ipv4_header_t;
 
 #endif

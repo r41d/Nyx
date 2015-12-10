@@ -27,6 +27,6 @@ typedef struct { // groups of 4 bytes each
 
 	uint32_t* options; // zero or more 32-bit-words
 
-} tcp_header;
+} tcp_header_t;
 
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len);

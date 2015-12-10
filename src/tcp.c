@@ -4,8 +4,7 @@
 #include <string.h>
 #include "tcp.h"
 
-
-void serialize_tcp (char* buf, const tcp_header* header) {
+void serialize_tcp (char* buf, const tcp_header_t* header) {
     memcpy(&buf[0], &header->src_port, sizeof(uint16_t));
     memcpy(&buf[2], &header->dest_port, sizeof(uint16_t));
     memcpy(&buf[4], &header->seq_num, sizeof(uint32_t));
@@ -26,7 +25,7 @@ void serialize_tcp (char* buf, const tcp_header* header) {
 	// optional
 }
 
-void deserialize_tcp (tcp_header* header, const char* buf) {
+void deserialize_tcp (tcp_header_t* header, const char* buf) {
     memcpy(&header->src_port, &buf[0], sizeof(uint16_t));
     memcpy(&header->dest_port, &buf[2], sizeof(uint16_t));
     memcpy(&header->seq_num, &buf[4], sizeof(uint32_t));
