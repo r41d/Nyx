@@ -55,7 +55,7 @@ void dump_tcp_header (tcp_header_t* header) {
 	printf("TCP-syn:         %d\n", header->syn);
 	printf("TCP-fin:         %d\n", header->fin);
 	printf("TCP-window:      %d\n", header->window);
-	printf("TCP-checksum:    %d\n", header->checksum);
+	printf("TCP-checksum:    %x\n", header->checksum);
 	printf("TCP-urgent_ptr:  %d\n", header->urgent_pointer);
     //	uint32_t* options; // zero or more 32-bit-words
 }

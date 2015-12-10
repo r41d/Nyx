@@ -5,46 +5,43 @@
 #include <string.h>
 #include "ipv4.h"
 
-
 int get_header_size(const ipv4_header_t* header) {
-	// return ... ;
+	return header->length << 2;
 }
 
 void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
-	uint8_t version_ihl = header->version << 4 | header->ihl;
-	memcpy(&buf[0], &version_ihl, sizeof(uint8_t));
-	memcpy(&buf[1], &header->tos, sizeof(uint8_t));
-	memcpy(&buf[2], &header->length, sizeof(uint16_t));
-	memcpy(&buf[4], &header->identification, sizeof(uint16_t));
-	uint16_t flags_fragment = header->flag_0 << 15
- 	                        | header->flag_df << 14
- 	                        | header->flag_mr << 13
- 	                        | header->fragment_offset;
-	memcpy(&buf[6], &flags_fragment, sizeof(uint16_t));
-	memcpy(&buf[8], &header->ttl, sizeof(uint8_t));
-	memcpy(&buf[9], &header->protocol, sizeof(uint8_t));
-	memcpy(&buf[10], &header->checksum, sizeof(uint16_t));
-	memcpy(&buf[12], &header->src_addr, sizeof(uint32_t));
-	memcpy(&buf[16], &header->dest_addr, sizeof(uint32_t));
+	buf[0] = header->version << 4 | header->ihl;
+	buf[1] = header->tos;
+	buf[2] = htons(header->length);
+	buf[4] = htons(header->identification);
+	buf[6] = htons(header->flag_0 << 15
+ 	             | header->flag_df << 14
+ 	             | header->flag_mr << 13
+ 	             | header->fragment_offset);
+	buf[8] = header->ttl;
+	buf[9] = htons(header->protocol);
+	buf[10] = htons(header->checksum);
+	buf[12] = htonl(header->src_addr);
+	buf[16] = htonl(header->dest_addr);
 	// optional
 }
 
 void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	header->version = buf[0] >> 4;
-	header->ihl = buf[0] % (1<<4);
-	memcpy(&header->tos, &buf[1], sizeof(uint8_t));
-	memcpy(&header->length, &buf[2], sizeof(uint16_t));
-	memcpy(&header->identification, &buf[4], sizeof(uint16_t));
+	header->ihl = buf[0] & 0b1111;
+	header->tos = buf[1];
+	header->length = ntohs( *((uint16_t*) &buf[2]));
+	header->identification = ntohs( *((uint16_t*) &buf[4]));
 
 	header->flag_0 = (buf[6] & 0b10000000) >> 7 ;
-	header->flag_df; (buf[6] & 0b01000000) >> 6 ; // Don't Fragment (1 bit)
-	header->flag_mr; (buf[6] & 0b00100000) >> 5 ; // More Fragments (1 bit)
-	header->fragment_offset = (buf[6] & 0b00011111) << 8 + buf[7]; // 13 bits
-	memcpy(&header->ttl, &buf[8], sizeof(uint8_t));
-	memcpy(&header->protocol, &buf[9], sizeof(uint8_t));
-	memcpy(&header->checksum, &buf[10], sizeof(uint16_t));
-	memcpy(&header->src_addr, &buf[12], sizeof(uint32_t));
-	memcpy(&header->dest_addr, &buf[16], sizeof(uint32_t));
+	header->flag_df; (buf[6] & 0b01000000) >> 6 ;
+	header->flag_mr; (buf[6] & 0b00100000) >> 5 ;
+	header->fragment_offset = (buf[6] & 0b00011111) << 8 + buf[7]; // ???
+	header->ttl = buf[8];
+	header->protocol = buf[9];
+	header->checksum = ntohs( *((uint16_t*) &buf[10]));
+	header->src_addr = ntohl( *((uint32_t*) &buf[12]));
+	header->dest_addr = ntohl( *((uint32_t*) &buf[16]));
 
 	//if () {
 	//	int opt_len = ...
