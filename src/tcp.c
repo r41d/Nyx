@@ -40,4 +40,29 @@ void deserialize_tcp (tcp_header* header, const char* buf) {
     header->fin = (buf[13] & 0b00000001);
     memcpy(&header->window, &buf[14], sizeof(uint16_t));
     memcpy(&header->checksum, &buf[16], sizeof(uint16_t));
-    memcpy(&header->urgent_pointer, &buf[18], sizeof(uint16_t));}
+    memcpy(&header->urgent_pointer, &buf[18], sizeof(uint16_t));
+}
+
+uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len) {
+  uint16_t sum = 0;
+
+  // Pseudo header
+  sum += ~((uint16_t) src);
+  sum += ~((uint16_t) (src >> 16));
+  sum += ~((uint16_t) dest);
+  sum += ~((uint16_t) (dest >> 16));
+  sum += ~((uint16_t) 6);
+  sum += ~len;
+
+  // Header and data (16 bit words at a time)
+  size_t i;
+  for (i = 0; i < (len >> 1); ++i) {
+    if (i != 8) sum += ~*((uint16_t *) &buf[i]);
+  }
+
+  // One remaining byte in data?
+  if (len & 1 != 0)
+    sum += ~((uint16_t) buf[len - 1]);
+
+  return ~sum;
+}

@@ -1,7 +1,4 @@
-
-#ifndef __TCP_H__
-#define __TCP_H__
-
+#pragma once
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -32,4 +29,4 @@ typedef struct { // groups of 4 bytes each
 
 } tcp_header;
 
-#endif
+uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len);
