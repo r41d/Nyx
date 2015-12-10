@@ -29,4 +29,7 @@ typedef struct { // groups of 4 bytes each
 
 } tcp_header_t;
 
+void serialize_tcp (char* buf, const tcp_header_t* header);
+void deserialize_tcp (tcp_header_t* header, const char* buf);
+void dump_tcp_header (tcp_header_t* header);
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len);

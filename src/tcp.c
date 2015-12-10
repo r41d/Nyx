@@ -42,6 +42,25 @@ void deserialize_tcp (tcp_header_t* header, const char* buf) {
     memcpy(&header->urgent_pointer, &buf[18], sizeof(uint16_t));
 }
 
+void dump_tc_header (tcp_header_t* header) {
+	printf("TCP HEADER DUMP:\n");
+	printf("TCP-src_port:    %d", header->src_port);
+	printf("TCP-dest_port:   %d", header->dest_port);
+	printf("TCP-seq_num:     %d", header->seq_num);
+	printf("TCP-ack_num:     %d", header->ack_num);
+	printf("TCP-data_offset: %d", header->data_offset);
+	printf("TCP-urg:         %d", header->urg);
+	printf("TCP-ack:         %d", header->ack);
+	printf("TCP-psh:         %d", header->psh);
+	printf("TCP-rst:         %d", header->rst);
+	printf("TCP-syn:         %d", header->syn);
+	printf("TCP-fin:         %d", header->fin);
+	printf("TCP-window:      %d", header->window);
+	printf("TCP-checksum:    %d", header->checksum);
+	printf("TCP-urgent_ptr:  %d", header->urgent_pointer);
+    //	uint32_t* options; // zero or more 32-bit-words
+}
+
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len) {
   uint16_t sum = 0;
 
