@@ -54,21 +54,21 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 
 void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4 HEADER DUMP:\n");
-	printf("IPv4-Version:    %d", header->version);
-	printf("IPv4-IHL:        %d", header->ihl);
-	printf("IPv4-TOS:        %d", header->tos);
-	printf("IPv4-Length:     %d", header->length);
-	printf("IPv4-Ident:      %d", header->identification);
-	printf("IPv4-Flag0:      %d", header->flag_0);
-	printf("IPv4-FlagDF:     %d", header->flag_df);
-	printf("IPv4-FlagMR:     %d", header->flag_mr);
-	printf("IPv4-FragOffset: %d", header->fragment_offset);
-	printf("IPv4-TTL:        %d", header->ttl);
-	printf("IPv4-Protocol:   %d", header->protocol);
-	printf("IPv4-Checksum:   %d", header->checksum);
-	printf("IPv4-SrcAddr:    %d", header->src_addr);
-	printf("IPv4-DestAddr:   %d", header->dest_addr);
-	printf("IPv4-DestAddr:   %d", header->dest_addr);
+	printf("IPv4-Version:    %d\n", header->version);
+	printf("IPv4-IHL:        %d\n", header->ihl);
+	printf("IPv4-TOS:        %d\n", header->tos);
+	printf("IPv4-Length:     %d\n", header->length);
+	printf("IPv4-Ident:      %d\n", header->identification);
+	printf("IPv4-Flag0:      %d\n", header->flag_0);
+	printf("IPv4-FlagDF:     %d\n", header->flag_df);
+	printf("IPv4-FlagMR:     %d\n", header->flag_mr);
+	printf("IPv4-FragOffset: %d\n", header->fragment_offset);
+	printf("IPv4-TTL:        %d\n", header->ttl);
+	printf("IPv4-Protocol:   %d\n", header->protocol);
+	printf("IPv4-Checksum:   %d\n", header->checksum);
+	printf("IPv4-SrcAddr:    %d\n", header->src_addr);
+	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
+	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
 	//uint8_t optional[40]; // 40 additional bytes at maximum
 }
 
