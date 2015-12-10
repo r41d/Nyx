@@ -52,6 +52,27 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	//}
 }
 
+void dump_ipv4_header (ipv4_header_t* header) {
+	printf("IPv4 HEADER DUMP:\n");
+	printf("IPv4-Version:    %d", header->version);
+	printf("IPv4-IHL:        %d", header->ihl);
+	printf("IPv4-TOS:        %d", header->tos);
+	printf("IPv4-Length:     %d", header->length);
+	printf("IPv4-Ident:      %d", header->identification);
+	printf("IPv4-Flag0:      %d", header->flag_0);
+	printf("IPv4-FlagDF:     %d", header->flag_df);
+	printf("IPv4-FlagMR:     %d", header->flag_mr);
+	printf("IPv4-FragOffset: %d", header->fragment_offset);
+	printf("IPv4-TTL:        %d", header->ttl);
+	printf("IPv4-Protocol:   %d", header->protocol);
+	printf("IPv4-Checksum:   %d", header->checksum);
+	printf("IPv4-SrcAddr:    %d", header->src_addr);
+	printf("IPv4-DestAddr:   %d", header->dest_addr);
+	printf("IPv4-DestAddr:   %d", header->dest_addr);
+	//uint8_t optional[40]; // 40 additional bytes at maximum
+}
+
+
 ipv4_header_t* assemble_ipv4_header_t(uint16_t payload_length, uint32_t src, uint32_t dest) {
 	ipv4_header_t* v4header = (ipv4_header_t*) malloc(sizeof(ipv4_header_t));
 
