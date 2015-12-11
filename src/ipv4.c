@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include <netinet/in.h>
 #include "ipv4.h"
 
 int get_header_size(const ipv4_header_t* header) {
@@ -28,17 +29,28 @@ void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
 
 void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	header->version = buf[0] >> 4;
+	if (header->version != 4)
+		printf("MALFORMED IP HEADER: VERSION IS NOT 4!\n");
 	header->ihl = buf[0] & 0b1111;
+	if (header->ihl*4 < 20)
+		printf("MALFORMED IP HEADER: HEADER IS SUPPOSEDLY SMALLER THAN 20 BYTES!\n");
 	header->tos = buf[1];
 	header->length = ntohs( *((uint16_t*) &buf[2]));
+	if (header->length < 41 || header->length > 1500)
+		printf("MALFORMED IP HEADER: LENGTH IS NOT IN {41,...,1500}!\n");
 	header->identification = ntohs( *((uint16_t*) &buf[4]));
-
 	header->flag_0 = (buf[6] >> 7) & 0b1;
+	if (header->flag_0 != 0)
+		printf("MALFORMED IP HEADER: FLAG_0 IS NOT 0!\n");
 	header->flag_df = (buf[6] >> 6) & 0b1;
 	header->flag_mr = (buf[6] >> 5) & 0b1;
-	header->fragment_offset = (buf[6] & 0b00011111) << 8 + buf[7]; // ???
+	header->fragment_offset = ((buf[6] & 0b00011111) << 8) + buf[7]; // ???
 	header->ttl = buf[8];
+	if (header->ttl < 0)
+		printf("MALFORMED IP HEADER: TTL IS NEGATIVE!\n");
 	header->protocol = buf[9];
+	if (header->protocol != IPPROTO_TCP)
+		printf("MALFORMED IP HEADER: PROTOCOL IS NOT TCP!\n");
 	header->checksum = ntohs( *((uint16_t*) &buf[10]));
 	header->src_addr = ntohl( *((uint32_t*) &buf[12]));
 	header->dest_addr = ntohl( *((uint32_t*) &buf[16]));
@@ -52,7 +64,7 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4 HEADER DUMP:\n");
 	printf("IPv4-Version:    %d\n", header->version);
-	printf("IPv4-IHL:        %d\n", header->ihl);
+	printf("IPv4-IHL:        %d (%d bytes)\n", header->ihl, header->ihl*4);
 	printf("IPv4-TOS:        %d\n", header->tos);
 	printf("IPv4-Length:     %d\n", header->length);
 	printf("IPv4-Ident:      %d\n", header->identification);
