@@ -55,7 +55,7 @@ size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length) {
   size_t bytes_read = 0;
 
   // Consume entire buffers for as long as possible
-  while (buffer != NULL && buffer->length < length) {
+  while (buffer != NULL && buffer->length <= length) {
     memcpy(dest, buffer->data, buffer->length);
 
     dest        = (uint8_t *) dest + buffer->length;
