@@ -36,7 +36,7 @@ static void update_fin_wait_1(tcp_conn_t* conn) {
     } else if (conn->last_flag_recv == FIN) {
         conn->flag_to_be_send = ACK;
         conn->newstate = CLOSING;
-    } else if (conn->last_flag_recv == ACKFIN) {
+    } else if (conn->last_flag_recv == FINACK) {
         // fast connection closing
         // skip FIN_WAIT_2 when we get ACK+FIN
         conn->flag_to_be_send = ACK;

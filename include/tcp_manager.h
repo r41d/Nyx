@@ -82,10 +82,15 @@ typedef struct {
     int fd;
     uint32_t remote_ipaddr;
     uint16_t remote_port;
+
     tcp_conn_state_t state;
     tcp_conn_state_t newstate;
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
+
+    // read queue
+    // write queue
+
 
     struct tcp_conn_t* next;
 } tcp_conn_t;

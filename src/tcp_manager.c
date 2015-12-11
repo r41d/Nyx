@@ -12,7 +12,7 @@ int tcp_manager_initialize() {
 
 // ...
 int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
-
+    // insert into TCPMGR.connections
 }
 
 int tcp_manager_read(int fd, void* buf, size_t count) {
