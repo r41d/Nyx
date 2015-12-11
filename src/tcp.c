@@ -24,6 +24,12 @@ void serialize_tcp (char* buf, const tcp_header_t* header) {
     buf[16] = htons(header->checksum);
     buf[18] = htons(header->urgent_pointer);
 	// optional
+    int options_len = header->data_offset*4 - 20;
+    if (options_len > 0) {
+        printf("DEBUG: serialize_tcp: header > 20, buf should be 60 bytes big.\n");
+        // buf should be 60 bytes
+        memcpy(&buf[20], header->options, options_len);
+    }
 }
 
 void deserialize_tcp (tcp_header_t* header, const char* buf) {
@@ -32,6 +38,8 @@ void deserialize_tcp (tcp_header_t* header, const char* buf) {
     header->seq_num = ntohl(*((uint32_t*) &buf[4]));
     header->ack_num = ntohl(*((uint32_t*) &buf[8]));
     header->data_offset = buf[12] >> 4;
+    if (header->data_offset*4 < 20)
+        printf("MALFORMED IP HEADER: HEADER IS SUPPOSEDLY SMALLER THAN 20 BYTES!\n");
     header->urg = (buf[13] & 0b00100000) >> 5;
     header->ack = (buf[13] & 0b00010000) >> 4;
     header->psh = (buf[13] & 0b00001000) >> 3;
@@ -41,6 +49,11 @@ void deserialize_tcp (tcp_header_t* header, const char* buf) {
     header->window = ntohs(*((uint16_t*) &buf[14]));
     header->checksum = ntohs(*((uint16_t*) &buf[16]));
     header->urgent_pointer = ntohs(*((uint16_t*) &buf[18]));
+    int options_len = header->data_offset*4 - 20;
+    if (options_len > 0) {
+        header->options = (uint32_t*) malloc(options_len);
+        memcpy(header->options, &buf[20], options_len);
+    }
 }
 
 void dump_tcp_header (tcp_header_t* header) {
@@ -49,7 +62,7 @@ void dump_tcp_header (tcp_header_t* header) {
 	printf("TCP-dest_port:   %d\n", header->dest_port);
 	printf("TCP-seq_num:     %d\n", header->seq_num);
 	printf("TCP-ack_num:     %d\n", header->ack_num);
-	printf("TCP-data_offset: %d\n", header->data_offset);
+	printf("TCP-data_offset: %d (%d bytes)\n",header->data_offset,header->data_offset*4);
 	printf("TCP-urg:         %d\n", header->urg);
 	printf("TCP-ack:         %d\n", header->ack);
 	printf("TCP-psh:         %d\n", header->psh);
@@ -58,7 +71,13 @@ void dump_tcp_header (tcp_header_t* header) {
 	printf("TCP-fin:         %d\n", header->fin);
 	printf("TCP-window:      %d\n", header->window);
 	printf("TCP-checksum:    %x\n", header->checksum);
-	printf("TCP-urgent_ptr:  %d\n", header->urgent_pointer);
+    printf("TCP-urgent_ptr:  %d\n", header->urgent_pointer);
+    if (header->data_offset*4 > 20) {
+        printf("TCP-options: ");
+        for (int i = 0; header->data_offset*4-20; i+=4) {
+            printf(" %d", header->options[i]);
+        }
+    }
     //	uint32_t* options; // zero or more 32-bit-words
 }
 
@@ -83,7 +102,8 @@ uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len
   }
 
   // One remaining byte in data?
-  if (len & 1 != 0) sum += (uint16_t) buf[len - 1];
+  if ((len & 1) != 0)
+    sum += (uint16_t) buf[len - 1];
 
   // Folding carry values
   sum = (sum & 0xFFFF) + (sum >> 16);
@@ -154,4 +174,5 @@ tcp_header_t* assemble_tcp_header(uint16_t src_port,
     }
     header->window = window;
     // der Rest fehlt noch...
+    return NULL;
 }
