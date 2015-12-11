@@ -78,7 +78,14 @@ typedef enum {
     CLOSED
 } tcp_conn_state_t;
 
-typedef struct {
+typedef struct buf_queue_t {
+    void* buf;
+    size_t buflen;
+
+    struct buf_queue_t* next;
+} buf_queue_t;
+
+typedef struct tcp_conn_t {
     int fd;
     uint32_t remote_ipaddr;
     uint16_t remote_port;
@@ -88,9 +95,8 @@ typedef struct {
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
 
-    // read queue
-    // write queue
-
+    buf_queue_t* read_queue;
+    buf_queue_t* write_queue;
 
     struct tcp_conn_t* next;
 } tcp_conn_t;
@@ -103,3 +109,5 @@ typedef struct {
 
 void tcp_manager_initialize();
 int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port);
+
+tcp_conn_t* fetch_con_by_fd(int fd);
