@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "buffer_queue.h"
 
 /* from RFC 793
                              +---------+ ---------\      active OPEN
@@ -78,13 +79,6 @@ typedef enum {
     CLOSED
 } tcp_conn_state_t;
 
-typedef struct buf_queue_t {
-    void* buf;
-    size_t buflen;
-
-    struct buf_queue_t* next;
-} buf_queue_t;
-
 typedef struct tcp_conn_t {
     int fd;
     uint32_t remote_ipaddr;
@@ -95,8 +89,8 @@ typedef struct tcp_conn_t {
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
 
-    buf_queue_t* read_queue;
-    buf_queue_t* write_queue;
+    buffer_queue_t read_queue;
+    buffer_queue_t write_queue;
 
     struct tcp_conn_t* next;
 } tcp_conn_t;

@@ -28,11 +28,8 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     con->last_flag_recv = NOTHING;
     con->flag_to_be_send = NOTHING;
 
-    con->read_queue = malloc(sizeof(buf_queue_t));
-    memset(con->read_queue, 0, sizeof(buf_queue_t));
-    // buf, buflen and next are all 0
-    con->write_queue = malloc(sizeof(buf_queue_t));
-    memset(con->write_queue, 0, sizeof(buf_queue_t));
+    buffer_queue_init(&con->read_queue);
+    buffer_queue_init(&con->write_queue);
 
     con->next = NULL;
 
@@ -75,8 +72,6 @@ int tcp_manager_close(int fd) {
     return -1;
 }
 
-
-
 tcp_conn_t* fetch_con_by_fd(int fd) {
     tcp_conn_t* aux;
     for (aux = TCPMGR.connections; aux != NULL; aux = aux->next) {
@@ -85,78 +80,4 @@ tcp_conn_t* fetch_con_by_fd(int fd) {
         }
     }
     return NULL; // no result was found
-}
-
-
-// BUFFER QUEUE FUNCTIONS
-
-/*
-    Enqueues a buffer to the end of a buf_queue_t
-*/
-static void enqueue_buf(buf_queue_t* q, void* buf, size_t buflen) {
-    buf_queue_t* aux;
-    for (aux = q; aux->next != NULL; aux = aux->next);
-    aux->next = malloc(sizeof(buf_queue_t));
-    aux->next->buf = buf;
-    aux->next->buflen = buflen;
-    aux->next->next = NULL;
-}
-
-/*
-  Get the numnber of total bytes present in thet
-  specified buf_queue_t
-*/
-static size_t buf_queue_size(buf_queue_t* q) {
-    size_t size;
-    buf_queue_t* aux;
-    for (aux = q; aux != NULL; aux = aux->next) {
-        size += aux->buflen;
-    }
-    return size;
-}
-
-/*
-    dequeue up to n bytes from a given buf_queue_t**  <--  DOUBLE POINTER!
-*/
-static size_t dequeue_bytes(buf_queue_t** queue, void* resultbuf, size_t n) {
-    buf_queue_t* q = *queue; // for easier usage in below code
-
-    if (q->buflen > n) {
-        memcpy(resultbuf, q->buf, n);
-
-        // shrink the entry in the queue
-        void* smallerbuf = malloc(q->buflen - n);
-        memcpy(smallerbuf, q->buf + n, q->buflen - n);
-        free(q->buf);
-        q->buf = smallerbuf; // assign new smaller buffer
-        q->buflen -= n; // new smaller size
-
-        return n; // we had n bytes, to we returned n bytes, gg
-    } else { // first buf isn't big enough to satisfy n bytes
-        // we know that q->buflen < n and that size(resultbuf) >= n
-        memcpy(resultbuf, q->buf, q->buflen); // write first buffer to resultbuf
-
-        buf_queue_t* aux = q; // later to be used for freeing
-        queue = &(q->next); // here the magic happens
-        // hier biegen wir den pointer aus dem originalen struct um
-
-        size_t already_read = aux->buflen;
-        // free buf which we deleted from the front
-        free(aux->buf);
-        free(aux);
-
-        // call dequeue_bytes again with offset on resultbuf
-        dequeue_bytes(queue, resultbuf+already_read, n - already_read);
-    }
-
-//    if (q.len > n) {
-//        erste n bytes von q.buf zurückgeben und von q.buf entfernen und q.len verringern
-//    } else {
-//        newbuf = q.buf // malloc + memcpy
-//        q = q.next // POINTER SCHEISS BEACHTEN und free() aufrufen
-//        // hier biegen wir den pointer aus dem originalen struct um
-//        newbuf += dequeue_bytes(q, n - bereits gelesen)
-//    }
-    return -1;
-
 }
