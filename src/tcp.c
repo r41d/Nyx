@@ -5,6 +5,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include "tcp.h"
+#include "tcp_manager.h"
 
 void serialize_tcp (char* buf, const tcp_header_t* header) {
     buf[0] = htons(header->src_port);
@@ -89,4 +90,68 @@ uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len
   sum = (sum & 0xFFFF) + (sum >> 16);
 
   return htons((uint16_t) ~sum);
+}
+
+/*
+typedef struct { // groups of 4 bytes each
+
+	uint16_t src_port; // 16 bit
+	uint16_t dest_port; // 16 bit
+
+	uint32_t seq_num; // 32 bit
+
+	uint32_t ack_num; // 32 bit
+
+	uint8_t data_offset : 4; // 4 bit
+	// 4 reserved bits
+	// 2 reserved bits
+	bool urg : 1; // 1 bit
+	bool ack : 1; // 1 bit
+	bool psh : 1; // 1 bit
+	bool rst : 1; // 1 bit
+	bool syn : 1; // 1 bit
+	bool fin : 1; // 1 bit
+	uint16_t window; // 16 bit
+
+	uint16_t checksum; // 16 bit
+	uint16_t urgent_pointer; // 16 bit
+
+	uint32_t* options; // zero or more 32-bit-words
+
+} tcp_header_t;
+*/
+
+tcp_header_t* assemble_tcp_header(uint16_t src_port,
+                                  uint16_t dest_port,
+                                  uint32_t seq_num,
+                                  uint32_t ack_num,
+                                  flag_t flags_to_be_send,
+                                  uint16_t window) {
+    tcp_header_t* header = (tcp_header_t*) malloc(sizeof(tcp_header_t));
+
+    header->src_port = src_port;
+    header->dest_port = dest_port;
+    header->seq_num = seq_num;
+    header->ack_num = ack_num;
+    switch (flags_to_be_send) {
+        case SYN:
+            header->syn = 1;
+            break;
+        case SYNACK:
+            header->syn = header->ack = 1;
+            break;
+        case FIN:
+            header->fin = 1;
+            break;
+        case FINACK:
+            header->fin = header->ack = 1;
+            break;
+        case ACK:
+            header->ack = 1;
+            break;
+        default: // everything else doesn't matter for us
+            break;
+    }
+    header->window = window;
+    // der Rest fehlt noch...
 }

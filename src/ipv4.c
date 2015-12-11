@@ -68,8 +68,11 @@ void dump_ipv4_header (ipv4_header_t* header) {
 	//uint8_t optional[40]; // 40 additional bytes at maximum
 }
 
+//uint16_t ipv4_checksum(...) {
+//
+//}
 
-ipv4_header_t* assemble_ipv4_header_t(uint16_t payload_length, uint32_t src, uint32_t dest) {
+ipv4_header_t* assemble_ipv4_header(uint16_t payload_length, uint32_t src, uint32_t dest) {
 	ipv4_header_t* v4header = (ipv4_header_t*) malloc(sizeof(ipv4_header_t));
 
 	static int ident = 0;
