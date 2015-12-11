@@ -13,7 +13,7 @@ static void update_syn_received(tcp_conn_t* conn) {
     if (conn->last_flag_recv == I_WANT_TO_CLOSE) {
         conn->flag_to_be_send = FIN;
         conn->newstate = FIN_WAIT_1;
-    } else if (conn->last_flag_recv == SYNACK) {
+    } else if (conn->last_flag_recv == ACK) { // ACK of SYN
         conn->flag_to_be_send = NOTHING;
         conn->newstate = ESTABLISHED;
     }
@@ -30,12 +30,17 @@ static void update_established(tcp_conn_t* conn) {
 }
 
 static void update_fin_wait_1(tcp_conn_t* conn) {
-    if (conn->last_flag_recv == FINACK) {
+    if (conn->last_flag_recv == ACK) { // ACK of FIN
         conn->flag_to_be_send = NOTHING;
         conn->newstate = FIN_WAIT_2;
     } else if (conn->last_flag_recv == FIN) {
         conn->flag_to_be_send = ACK;
         conn->newstate = CLOSING;
+    } else if (conn->last_flag_recv == ACKFIN) {
+        // fast connection closing
+        // skip FIN_WAIT_2 when we get ACK+FIN
+        conn->flag_to_be_send = ACK;
+        conn->newstate = TIME_WAIT;
     }
 }
 
@@ -47,7 +52,7 @@ static void update_fin_wait_2(tcp_conn_t* conn) {
 }
 
 static void update_closing(tcp_conn_t* conn) {
-    if (conn->last_flag_recv == FINACK) {
+    if (conn->last_flag_recv == ACK) { // ACK of FIN
         conn->flag_to_be_send = NOTHING;
         conn->newstate = TIME_WAIT;
     }
@@ -68,7 +73,7 @@ static void update_close_wait(tcp_conn_t* conn) {
 }
 
 static void update_last_ack(tcp_conn_t* conn) {
-    if (conn->last_flag_recv == FINACK) {
+    if (conn->last_flag_recv == ACK) { // ACK of FIN
         conn->flag_to_be_send = NOTHING;
         conn->newstate = CLOSED;
     }
