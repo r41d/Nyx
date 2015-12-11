@@ -99,3 +99,7 @@ typedef struct {
     bool ready;
     tcp_conn_t* connections; // linked list
 } tcp_state_t;
+
+
+void tcp_manager_initialize();
+int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port);
