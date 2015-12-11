@@ -25,6 +25,12 @@ void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
 	buf[12] = htonl(header->src_addr);
 	buf[16] = htonl(header->dest_addr);
 	// optional
+	int options_len = header->ihl*4 - 20;
+	if (options_len > 0) {
+		printf("DEBUG: serialize_ipv4: header > 20, buf should be 60 bytes big.\n");
+		// buf should be 60 bytes
+		memcpy(&buf[20], header->options, options_len);
+	}
 }
 
 void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
@@ -54,11 +60,11 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	header->checksum = ntohs( *((uint16_t*) &buf[10]));
 	header->src_addr = ntohl( *((uint32_t*) &buf[12]));
 	header->dest_addr = ntohl( *((uint32_t*) &buf[16]));
-
-	//if () {
-	//	int opt_len = ...
-	//	memcpy(&(header->optional), &buf[20], opt_len);
-	//}
+	int options_len = header->ihl*4 - 20;
+	if (options_len > 0) {
+		header->options = (uint32_t*) malloc(options_len);
+		memcpy(header->options, &buf[20], options_len);
+	}
 }
 
 void dump_ipv4_header (ipv4_header_t* header) {
@@ -77,7 +83,12 @@ void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4-Checksum:   %d\n", header->checksum);
 	printf("IPv4-SrcAddr:    %d\n", header->src_addr);
 	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
-	//uint8_t optional[40]; // 40 additional bytes at maximum
+	if (header->ihl*4 > 20) {
+    	printf("IPv4-Options:   ");
+        for (int i = 0; i < header->ihl*4-20; i+=4) {
+            printf(" %08x", header->options[i]);
+        }
+    }
 }
 
 //uint16_t ipv4_checksum(...) {

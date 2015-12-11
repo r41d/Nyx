@@ -26,7 +26,7 @@ typedef struct { // groups of 4 bytes each
 
 	uint32_t dest_addr; // 32 bits
 
-	uint8_t optional[40]; // 40 additional bytes at maximum
+	uint32_t* options; // 40 additional bytes at maximum, in 4 byte steps
 
 } ipv4_header_t;
 

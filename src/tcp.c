@@ -73,12 +73,11 @@ void dump_tcp_header (tcp_header_t* header) {
 	printf("TCP-checksum:    %x\n", header->checksum);
     printf("TCP-urgent_ptr:  %d\n", header->urgent_pointer);
     if (header->data_offset*4 > 20) {
-        printf("TCP-options: ");
-        for (int i = 0; header->data_offset*4-20; i+=4) {
-            printf(" %d", header->options[i]);
+        printf("TCP-options:    ");
+        for (int i = 0; i < header->data_offset*4-20; i+=4) {
+            printf(" %08x", header->options[i]);
         }
     }
-    //	uint32_t* options; // zero or more 32-bit-words
 }
 
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len) {

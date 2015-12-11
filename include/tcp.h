@@ -26,7 +26,7 @@ typedef struct { // groups of 4 bytes each
 	uint16_t checksum; // 16 bit
 	uint16_t urgent_pointer; // 16 bit
 
-	uint32_t* options; // zero or more 32-bit-words
+	uint32_t* options; // 40 additional bytes at maximum, in 4 byte steps
 
 } tcp_header_t;
 
