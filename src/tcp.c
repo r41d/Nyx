@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <arpa/inet.h>
 #include "tcp.h"
 
 void serialize_tcp (char* buf, const tcp_header_t* header) {
@@ -61,25 +62,31 @@ void dump_tcp_header (tcp_header_t* header) {
 }
 
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len) {
-  uint16_t sum = 0;
+  uint32_t sum = 0;
 
   // Pseudo header
-  sum += ~((uint16_t) src);
-  sum += ~((uint16_t) (src >> 16));
-  sum += ~((uint16_t) dest);
-  sum += ~((uint16_t) (dest >> 16));
-  sum += ~((uint16_t) 6);
-  sum += ~len;
+  src  = htonl(src);
+  dest = htonl(dest);
+
+  sum += (uint16_t) src;
+  sum += (uint16_t) (src >> 16);
+  sum += (uint16_t) dest;
+  sum += (uint16_t) (dest >> 16);
+  sum += htons(6);
+  sum += htons(len);
 
   // Header and data (16 bit words at a time)
   size_t i;
   for (i = 0; i < (len >> 1); ++i) {
-    if (i != 8) sum += ~*((uint16_t *) &buf[i]);
+    if (i != 8) sum += *(uint16_t *) &buf[i << 1];
   }
 
   // One remaining byte in data?
-  if (len & 1 != 0)
-    sum += ~((uint16_t) buf[len - 1]);
+  if (len & 1 != 0) sum += (uint16_t) buf[len - 1];
 
-  return ~sum;
+  // Folding carry values
+  sum = (sum & 0xFFFF) + (sum >> 16);
+  sum = (sum & 0xFFFF) + (sum >> 16);
+
+  return htons((uint16_t) ~sum);
 }
