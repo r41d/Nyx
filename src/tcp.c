@@ -60,8 +60,8 @@ void dump_tcp_header (tcp_header_t* header) {
 	printf("TCP HEADER DUMP:\n");
 	printf("TCP-src_port:    %d\n", header->src_port);
 	printf("TCP-dest_port:   %d\n", header->dest_port);
-	printf("TCP-seq_num:     %d\n", header->seq_num);
-	printf("TCP-ack_num:     %d\n", header->ack_num);
+	printf("TCP-seq_num:     %x\n", header->seq_num);
+	printf("TCP-ack_num:     %x\n", header->ack_num);
 	printf("TCP-data_offset: %d (%d bytes)\n",header->data_offset,header->data_offset*4);
 	printf("TCP-urg:         %d\n", header->urg);
 	printf("TCP-ack:         %d\n", header->ack);

@@ -80,9 +80,9 @@ void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4-FragOffset: %d\n", header->fragment_offset);
 	printf("IPv4-TTL:        %d\n", header->ttl);
 	printf("IPv4-Protocol:   %d\n", header->protocol);
-	printf("IPv4-Checksum:   %d\n", header->checksum);
-	printf("IPv4-SrcAddr:    %d\n", header->src_addr);
-	printf("IPv4-DestAddr:   %d\n", header->dest_addr);
+	printf("IPv4-Checksum:   %x\n", header->checksum);
+	printf("IPv4-SrcAddr:    %08x\n", header->src_addr);
+	printf("IPv4-DestAddr:   %08x\n", header->dest_addr);
 	if (header->ihl*4 > 20) {
     	printf("IPv4-Options:   ");
         for (int i = 0; i < header->ihl*4-20; i+=4) {
