@@ -4,6 +4,7 @@
 #include <sys/types.h> // ssize_t
 #include "tcp_manager.h"
 #include "update_state.h"
+#include "buffer_queue.h"
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -28,7 +29,8 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     con->last_flag_recv = NOTHING;
     con->flag_to_be_send = NOTHING;
 
-    buffer_queue_init(&con->read_queue);
+    buffer_queue_init(&con->raw_read_queue);
+    buffer_queue_init(&con->payload_read_queue);
     buffer_queue_init(&con->write_queue);
 
     con->next = NULL;
@@ -44,23 +46,23 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     return 0;
 }
 
-int tcp_manager_read(int fd, void* buf, size_t count) {
+int tcp_manager_raw_read(int fd, void* buf, size_t count) {
 
+    // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
+    // read from raw socket
+    void* buffer = malloc(count);
+    ssize_t bytes_rcvd = read(con->fd, buffer, count);
 
-
-
+    // enqueue in
+    buffer_queue_enqueue(&con->raw_read_queue, buffer, bytes_rcvd);
 
     return -1;
 }
 
 int tcp_manager_write(int fd, void* buf, size_t count) {
-    tcp_conn_t* con = fetch_con_by_fd(fd);
 
-
-    void* buffer = malloc(count);
-    ssize_t bytes_rcvd = read(con->fd, buffer, count);
 
 
 

@@ -41,15 +41,6 @@ void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length) {
   q->length += length;
 }
 
-size_t buffer_queue_length(buffer_queue_t* q) {
-  size_t length;
-  buffer_t *buffer = q->start;
-  for (; buffer != NULL; buffer = (buffer_t*) buffer->next) {
-    length += buffer->length;
-  }
-  return length;
-}
-
 size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length) {
   buffer_t *buffer = q->start;
   size_t bytes_read = 0;
