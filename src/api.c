@@ -13,11 +13,7 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     // remember this particular connection in our TCP state
     tcp_manager_register(raw_fd, ipaddress, port);
 
-
-
     // initiate three-way handshake (ONLY THE SERVER SIDE)
-
-
 
     return -1;
 }

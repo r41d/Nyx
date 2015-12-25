@@ -9,7 +9,8 @@
 #include "buffer_queue.h"
 #include "update_state.h"
 
-static uint16_t tcp_manager_raw_read(int fd, void* buf, size_t count);
+static uint16_t tcp_manager_raw_read(int fd);
+static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -56,7 +57,7 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
-    uint16_t pkg_len = tcp_manager_raw_read(fd, buf, count);
+    uint16_t pkg_len = tcp_manager_raw_read(fd);
 
     void* pkg = malloc(pkg_len);
 
@@ -76,36 +77,116 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     deserialize_tcp(&tcp_head, pkg + (ipv4_head.ihl << 2));
 
 
-
     return -1;
 }
 
-static uint16_t tcp_manager_raw_read(int fd, void* buf, size_t count) {
-    size_t rcvd;
+// read from raw socket as much as possible
+static uint16_t tcp_manager_raw_read(int fd) {
+    size_t rcvd = -1;
+    size_t total = 0;
 
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
-    // read base IPv4 header from raw socket
-    void* ipbuf = malloc(IPV4_HEADER_BASE_LENGTH);
-    rcvd = read(con->fd, ipbuf, IPV4_HEADER_BASE_LENGTH);
-    // and enqueue in raw read queue
-    buffer_queue_enqueue(&con->raw_read_queue, ipbuf, rcvd);
+    while(rcvd != 0) {
+        void* rawbuf = malloc(512);
+        rcvd = read(con->fd, rawbuf, 512);
+        rawbuf = realloc(rawbuf, rcvd); // deallocates if rcvd=0
+        if (rcvd > 0) {
+            buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
+            total += rcvd;
+        }
+    }
 
-    // read the rest of the packet from raw socket
-    uint16_t tot_len = ntohs( *( (uint16_t*)  buf+2 ) ); // trust me on this one
-    void* pkgbuf = malloc(IPV4_HEADER_BASE_LENGTH);
-    rcvd = read(con->fd, pkgbuf, tot_len - IPV4_HEADER_BASE_LENGTH);
-    // and enqueue in raw read queue
-    buffer_queue_enqueue(&con->raw_read_queue, pkgbuf, rcvd);
-
-    return tot_len;
+    return total;
 }
 
+// shovel from raw queue to payload queue
+static uint16_t tcp_manager_process_raw_queue(int fd) {
+    int ret;
+
+    // get the connection struct
+    tcp_conn_t* con = fetch_con_by_fd(fd);
+
+    //size_t buffer_queue_top(buffer_queue_t* q, void* dest, size_t length);
+    void* checkbuf = malloc(IPV4_HEADER_BASE_LENGTH);
+    size_t got = buffer_queue_top(&con->raw_read_queue, checkbuf, IPV4_HEADER_BASE_LENGTH);
+
+    if (got < IPV4_HEADER_BASE_LENGTH) {
+        free(checkbuf);
+        return 0;
+    }
+
+    // we have a complete IPv4 Header!
+
+    ipv4_header_t ipv4_head; // crumple the stack, it's fun
+    deserialize_ipv4(&ipv4_head, checkbuf); // additional options on this one may be filled with gargabe
+
+    if (buffer_queue_length(&con->raw_read_queue) > ipv4_head.length) { // WE ARE GO
+
+        uint16_t pkg_len = ipv4_head.length;
+
+        void* pkg = malloc(pkg_len);
+        size_t got = buffer_queue_dequeue(&(con->raw_read_queue), pkg, pkg_len);
+
+        if (got != pkg_len)
+            printf("ERROR: got != pkg_len\n");
+
+        // do the ip thing
+        deserialize_ipv4(&ipv4_head, pkg);
+
+        // do the tcp thing
+        tcp_header_t tcp_head; // crumple, crumple, ...
+        deserialize_tcp(&tcp_head, pkg + (ipv4_head.ihl << 2));
+
+        handle_tcp_header(con, &tcp_head);
+
+        size_t payload_offset = (ipv4_head.ihl << 2) + (tcp_head.data_offset << 2);
+        size_t payload_len = pkg_len - payload_offset;
+        ret = payload_len;
+        if (payload_len > 0) {
+            void* payload = malloc(payload_len);
+            memcpy(payload, pkg+payload_offset, payload_len);
+            buffer_queue_enqueue(&con->payload_read_queue, pkg+payload_offset, payload_len);
+        }
+        free(pkg);
+    }
+
+    // clean up
+    free(checkbuf);
+
+    return ret;
+
+}
+
+static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
+
+    // set last_flag_recv according to flags
+    if (tcp_head->syn && tcp_head->ack)
+        con->last_flag_recv = SYNACK;
+    else if (tcp_head->fin && tcp_head->ack)
+        con->last_flag_recv = FINACK;
+    else if (tcp_head->syn)
+        con->last_flag_recv = SYN;
+    else if (tcp_head->fin)
+        con->last_flag_recv = FIN;
+    else if (tcp_head->ack)
+        con->last_flag_recv = ACK;
+
+    // update the state according to TCP FSA (see update_state.h)
+    update_state(con);
+
+    // here, we can insert stuff that needs to know both the old and the new state
+    // ...
+
+    // new the new state the actual state
+    con->state = con->newstate;
+
+    // after this, state and newstate are the same
+
+}
 
 int tcp_manager_write(int fd, void* buf, size_t count) {
-
-
 
 
     return -1;
