@@ -25,6 +25,11 @@ void buffer_queue_init(buffer_queue_t* q);
 void buffer_queue_clear(buffer_queue_t* q);
 
 /**
+ * Get the total size in bytes.
+ */
+size_t buffer_queue_length(buffer_queue_t* q);
+
+/**
  * Enqueues a new buffer into the buffer queue.
  */
 void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length);
@@ -34,3 +39,8 @@ void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length);
  * buffer. Returns the number of bytes that were dequeued.
  */
 size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length);
+
+/**
+ * Variant of buffer_queue_dequeue, but it doesn't alter the queue
+ */
+size_t buffer_queue_top(buffer_queue_t* q, void* dest, size_t length);

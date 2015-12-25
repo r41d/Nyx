@@ -23,6 +23,10 @@ void buffer_queue_clear(buffer_queue_t* q) {
   q->length = 0;
 }
 
+size_t buffer_queue_length(buffer_queue_t* q) {
+    return q->length;
+}
+
 void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length) {
   buffer_t* buffer = malloc(sizeof(buffer_t));
   buffer->data   = src;
@@ -41,7 +45,7 @@ void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length) {
 }
 
 size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length) {
-  buffer_t *buffer = q->start;
+  buffer_t* buffer = q->start;
   size_t bytes_read = 0;
 
   // Consume entire buffers for as long as possible
@@ -71,6 +75,28 @@ size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length) {
   memmove(buffer->data, (uint8_t *) buffer->data + length, buffer->length - length);
   buffer->data = realloc(buffer->data, buffer->length - length);
   q->length -= length;
+
+  return bytes_read + length;
+}
+
+size_t buffer_queue_top(buffer_queue_t* q, void* dest, size_t length) {
+  buffer_t* buffer = q->start;
+  size_t bytes_read = 0;
+
+  while (buffer != NULL && buffer->length <= length) {
+    memcpy(dest, buffer->data, buffer->length);
+
+    dest        = (uint8_t *) dest + buffer->length;
+    length     -= buffer->length;
+    bytes_read += buffer->length;
+
+    buffer = (buffer_t*) buffer->next;
+  }
+
+  if (buffer == NULL)
+    return bytes_read;
+
+  memcpy(dest, buffer->data, length);
 
   return bytes_read + length;
 }
