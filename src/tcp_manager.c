@@ -127,7 +127,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
         uint16_t pkg_len = ipv4_head.length;
 
         void* pkg = malloc(pkg_len);
-        size_t got = buffer_queue_dequeue(&(con->raw_read_queue), pkg, pkg_len);
+        size_t got = buffer_queue_dequeue(&con->raw_read_queue, pkg, pkg_len);
 
         if (got != pkg_len)
             printf("ERROR: got != pkg_len\n");
@@ -148,6 +148,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
             void* payload = malloc(payload_len);
             memcpy(payload, pkg+payload_offset, payload_len);
             buffer_queue_enqueue(&con->payload_read_queue, pkg+payload_offset, payload_len);
+            send_ack_immediately(...);
         }
         free(pkg);
     }
@@ -173,6 +174,10 @@ static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     else if (tcp_head->ack)
         con->last_flag_recv = ACK;
 
+    // update received ACKs
+    if (tcp_head->ack)
+        con->last_ack_num_rcvd = tcp_head->ack_num;
+
     // update the state according to TCP FSA (see update_state.h)
     update_state(con);
 
@@ -183,6 +188,11 @@ static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     con->state = con->newstate;
 
     // after this, state and newstate are the same
+
+    if (con->flag_to_be_send == SYNACK) {
+        // send SYN ACK packet!! (second phase of 3 way handshake)
+    }
+
 
 }
 

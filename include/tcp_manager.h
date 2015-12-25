@@ -42,6 +42,9 @@ typedef struct tcp_conn_t {
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
 
+    uint32_t last_ack_num_rcvd;
+    uint32_t next_ack_num_to_send;
+
     buffer_queue_t raw_read_queue;
     buffer_queue_t payload_read_queue;
 

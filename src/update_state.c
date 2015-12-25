@@ -23,7 +23,8 @@ static void update_established(tcp_conn_t* conn) {
     if (conn->last_flag_recv == I_WANT_TO_CLOSE) {
         conn->flag_to_be_send = FIN;
         conn->newstate = FIN_WAIT_1;
-    } else if (conn->last_flag_recv == FIN) {
+    } else if (conn->last_flag_recv == FIN
+        || conn->last_flag_recv == FINACK) { // need this cuz Linux bundles the terminating ACK with a FIN
         conn->flag_to_be_send = ACK;
         conn->newstate = CLOSE_WAIT;
     }
