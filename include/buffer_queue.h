@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 typedef struct {
-  void *data;
+  void* data;
   size_t length;
   struct buffer_t* next;
 } buffer_t;
@@ -17,12 +17,12 @@ typedef struct {
 /**
  * Initializes a buffer queue.
  */
-void buffer_queue_init(buffer_queue_t *q);
+void buffer_queue_init(buffer_queue_t* q);
 
 /**
  * Clears a buffer queue.
  */
-void buffer_queue_clear(buffer_queue_t *q);
+void buffer_queue_clear(buffer_queue_t* q);
 
 /**
  * Enqueues a new buffer into the buffer queue.

@@ -3,13 +3,13 @@
 #include <string.h>
 #include "buffer_queue.h"
 
-void buffer_queue_init(buffer_queue_t *q) {
+void buffer_queue_init(buffer_queue_t* q) {
   q->start  = NULL;
   q->end    = NULL;
   q->length = 0;
 }
 
-void buffer_queue_clear(buffer_queue_t *q) {
+void buffer_queue_clear(buffer_queue_t* q) {
   buffer_t* buffer = q->start;
 
   for (; buffer != NULL; buffer = (buffer_t*) buffer->next) {
@@ -24,8 +24,7 @@ void buffer_queue_clear(buffer_queue_t *q) {
 }
 
 void buffer_queue_enqueue(buffer_queue_t* q, void* src, size_t length) {
-  buffer_t* buffer;
-  buffer         = malloc(sizeof(buffer_t));
+  buffer_t* buffer = malloc(sizeof(buffer_t));
   buffer->data   = src;
   buffer->length = length;
   buffer->next   = NULL;
@@ -63,8 +62,9 @@ size_t buffer_queue_dequeue(buffer_queue_t* q, void* dest, size_t length) {
     buffer = q->start;
   }
 
-  // No data in buffer anymore
-  if (buffer == NULL) return bytes_read;
+  // If no data in buffer anymore
+  if (buffer == NULL)
+    return bytes_read;
 
   // Consume parts of a buffer
   memcpy(dest, buffer->data, length);
