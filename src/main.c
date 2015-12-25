@@ -36,7 +36,7 @@ int main (void) {
   memset(&hdr_tcp, 0, sizeof(tcp_header_t));
 
   while ((size = read(sock, &buf, 512)) > 0) {
-    deserialize_ipv4(&hdr_ip, &buf);
+    deserialize_ipv4(&hdr_ip, buf);
 
     size_t offset = (size_t) (hdr_ip.ihl << 2);
     deserialize_tcp(&hdr_tcp, &buf[offset]);

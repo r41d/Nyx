@@ -15,22 +15,21 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
 
 
 
-    // initiate three-way handshake
+    // initiate three-way handshake (ONLY THE SERVER SIDE)
+
 
 
     return -1;
 }
 
 ssize_t nyx_read(int fd, void* buf, size_t count) {
-
-    return -1;
+    return tcp_manager_read(fd, buf, count);
 }
 
 ssize_t nyx_write(int fd, void* buf, size_t count) {
-
-    return -1;
+    return tcp_manager_write(fd, buf, count);
 }
 
 void nyx_close(int fd) {
-
+    tcp_manager_close(fd);
 }

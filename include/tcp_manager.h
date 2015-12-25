@@ -58,5 +58,8 @@ typedef struct {
 
 void tcp_manager_initialize();
 int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port);
+int tcp_manager_read(int fd, void* buf, size_t count);
+int tcp_manager_write(int fd, void* buf, size_t count);
+int tcp_manager_close(int fd);
 
 tcp_conn_t* fetch_con_by_fd(int fd);

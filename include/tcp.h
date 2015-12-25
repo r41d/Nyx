@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TCP_HEADER_BASE_LENGTH 20
+
 typedef struct { // groups of 4 bytes each
 
 	uint16_t src_port; // 16 bit

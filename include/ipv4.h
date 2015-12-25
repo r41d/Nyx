@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define IPV4_HEADER_BASE_LENGTH 20
+
 typedef struct { // groups of 4 bytes each
 
 	uint8_t version : 4; // 4 bits
