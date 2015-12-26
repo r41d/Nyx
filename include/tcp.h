@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "tcp_manager.h"
 
 #define TCP_HEADER_BASE_LENGTH 20
 
@@ -36,4 +37,9 @@ void serialize_tcp (char* buf, const tcp_header_t* header);
 void deserialize_tcp (tcp_header_t* header, const char* buf);
 void dump_tcp_header (tcp_header_t* header);
 uint16_t tcp_checksum(const char* buf, uint32_t src, uint32_t dest, uint16_t len);
-//tcp_header_t* assemble_tcp_header(...);
+tcp_header_t* assemble_tcp_header(uint16_t src_port,
+                                  uint16_t dest_port,
+                                  uint32_t seq_num,
+                                  uint32_t ack_num,
+                                  flag_t flags_to_be_send,
+                                  uint16_t window);

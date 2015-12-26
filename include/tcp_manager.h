@@ -37,18 +37,23 @@ typedef struct tcp_conn_t {
     uint32_t remote_ipaddr;
     uint16_t remote_port;
 
+    uint16_t local_port;
+
     tcp_conn_state_t state;
     tcp_conn_state_t newstate;
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
 
-    uint32_t last_ack_num_rcvd;
-    uint32_t next_ack_num_to_send;
+    uint32_t local_seq_num; // this is out incrementing seq num for sending
+    uint32_t last_ack_num_rcvd; // this is as far as we got ACKs
 
-    buffer_queue_t raw_read_queue;
-    buffer_queue_t payload_read_queue;
+    uint32_t last_ack_num_sent; // outgoing
+    uint32_t next_ack_num_to_send; // outgoing
 
-    buffer_queue_t write_queue;
+    buffer_queue_t raw_read_queue; // incoming raw
+    buffer_queue_t payload_read_queue; //incoming payload
+
+    buffer_queue_t write_queue; //outgoing payload
 
     struct tcp_conn_t* next;
 } tcp_conn_t;
