@@ -9,8 +9,8 @@ int main (void) {
     const int buf_size = 1024;
     char buf[buf_size];
     while (nyx_read(fd,&buf,buf_size) > 0) {
-        buf[buf_size-1] = '\0'; // ensure 0 termination
-        printf("%s\n", buf);
+        //buf[buf_size-1] = '\0'; // ensure 0 termination
+        //printf("%s\n", buf);
         // TODO: write data to file
     }
     nyx_close(fd);

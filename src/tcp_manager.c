@@ -11,11 +11,12 @@
 #include "buffer_queue.h"
 #include "update_state.h"
 
-static uint16_t tcp_manager_raw_read(int fd);
+static uint16_t read_raw_socket(int fd);
 static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
-static uint16_t tcp_manager_process_raw_queue(int fd);
+static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload);
 static void send_empty_ack_packet(int fd, int ack_num);
 static int fd_set_blocking(int fd, int blocking);
+static void raw2payload_shoveling(int fd, void* payload, size_t payload_len);
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -69,18 +70,42 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     size_t bytes_ready = 0;
 
     while (bytes_ready < 1) {
+
+        // printf("bytes ready < 1\n");
+
         // read from raw socket as much as possible in NONBLOCKing mode
-        // printf("tcp_manager_raw_read\n");
-        uint16_t got_raw = tcp_manager_raw_read(fd);
+        // printf("read_raw_socket\n");
+
+        uint16_t got_raw = read_raw_socket(fd);
         if (got_raw)
-            printf("got %d from tcp_manager_raw_read\n", got_raw);
+            printf("got %d from read_raw_socket\n", got_raw);
+
+
 
         // shovel from raw queue to payload queue
-        // printf("tcp_manager_process_raw_queue\n");
-        uint16_t shoveled = tcp_manager_process_raw_queue(fd);
-        if (shoveled)
-            printf("shoveled %d from tcp_manager_process_raw_queue\n", shoveled);
-        bytes_ready += shoveled;
+        // printf("process_raw_queue\n");
+        ipv4_header_t* ipv4_head = NULL;
+        tcp_header_t* tcp_head = NULL;
+        void* payload = NULL;
+        uint16_t payload_bytes_available = process_raw_queue(fd, &ipv4_head, &tcp_head, &payload);
+        // any of ipv4_head, tcp_head or payload may be NULL after this call!
+
+        // here the state transitioning (and stuff) is done
+        handle_tcp_header(con, tcp_head);
+
+        if (con->state == ESTABLISHED) {
+            if (payload_bytes_available)
+                printf("process_raw_queue reports %d bytes of payload available \n", payload_bytes_available);
+            raw2payload_shoveling(fd, payload, payload_bytes_available);
+
+            // this ack number needs to be send with the next ACK
+            if(tcp_head != NULL && payload_bytes_available > 0)
+                con->next_ack_num_to_send = tcp_head->seq_num + payload_bytes_available;
+
+            bytes_ready += payload_bytes_available;
+        }
+        // we will never leave this while loop unless we are in the ESTABLISHED state
+
     }
 
 
@@ -97,6 +122,8 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
 }
 
 static void send_empty_ack_packet(int fd, int ack_num) {
+
+    printf("sending empty ack...\n");
 
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
@@ -126,7 +153,10 @@ static void send_empty_ack_packet(int fd, int ack_num) {
 }
 
 // read from raw socket as much as possible
-static uint16_t tcp_manager_raw_read(int fd) {
+static uint16_t read_raw_socket(int fd) {
+
+    //printf("tcp manager raw read\n");
+
     ssize_t rcvd;
     size_t total = 0;
 
@@ -134,42 +164,55 @@ static uint16_t tcp_manager_raw_read(int fd) {
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
     // turn to nonblocking mode
-    fd_set_blocking(fd, true);
+    fd_set_blocking(fd, false);
 
     do {
+        //printf("mallocing 512...\n");
         void* rawbuf = malloc(512);
+        //printf("read on raw...\n");
         rcvd = read(con->fd, rawbuf, 512);
+        // printf("%zd \n", rcvd);
         if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
             rcvd = 0; // was -1
         }
         rawbuf = realloc(rawbuf, rcvd); // deallocates if rcvd=0
         if (rcvd > 0) {
-            // printf("tcp_manager_raw_read: %d: %x\n", rcvd, rawbuf);
+            // printf("read_raw_socket: %d: %x\n", rcvd, rawbuf);
             fwrite(rawbuf, rcvd, 1, stdout);
+            printf("Enqueueing %zu bytes into raw_read_queue\n", rcvd);
             buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
             total += rcvd;
         }
     } while(rcvd > 0);
 
     // back to blocking mode
-    fd_set_blocking(fd, false);
+    fd_set_blocking(fd, true);
 
     return total;
 }
 
 // shovel from raw queue to payload queue
-static uint16_t tcp_manager_process_raw_queue(int fd) {
+static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload) {
+    *ipv4_head_p = NULL;
+    *tcp_head_p = NULL;
+    *payload = NULL;
+
+    // printf("tcp manager process raw queue\n");
+
     int ret;
 
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
     if (buffer_queue_length(&con->raw_read_queue) < 20) {
+        // printf("raw read queue < 20\n");
         return 0;
     }
 
     //size_t buffer_queue_top(buffer_queue_t* q, void* dest, size_t length);
+    printf("mallocing checkbuf\n");
     void* checkbuf = malloc(IPV4_HEADER_BASE_LENGTH);
+    printf("buffer queue top -> checkbuf\n");
     size_t got = buffer_queue_top(&con->raw_read_queue, checkbuf, IPV4_HEADER_BASE_LENGTH);
 
     if (got < IPV4_HEADER_BASE_LENGTH) {
@@ -177,7 +220,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
         return 0;
     }
 
-    // we have a complete IPv4 Header!
+    // we have a complete IPv4 Header at this point!
 
     ipv4_header_t ipv4_head; // crumple the stack, it's fun
     printf("Got an IPv4 header\n");
@@ -196,25 +239,24 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
 
         // do the ip thing
         deserialize_ipv4(&ipv4_head, pkg);
+        *ipv4_head_p = &ipv4_head;
 
         // do the tcp thing
         tcp_header_t tcp_head; // crumple, crumple, ...
         printf("Got a TCP header\n");
         deserialize_tcp(&tcp_head, pkg + (ipv4_head.ihl << 2));
+        *tcp_head_p = &tcp_head;
 
-        handle_tcp_header(con, &tcp_head);
-
+        // determine if we have any payload and return the amount of bytes it has
         size_t payload_offset = (ipv4_head.ihl << 2) + (tcp_head.data_offset << 2);
         size_t payload_len = pkg_len - payload_offset;
-        ret = payload_len;
         if (payload_len > 0) {
-            void* payload = malloc(payload_len);
-            memcpy(payload, pkg+payload_offset, payload_len);
-            buffer_queue_enqueue(&con->payload_read_queue, pkg+payload_offset, payload_len);
-            printf("Enqueueing %zu bytes of payload\n", payload_len);
-            // this ack number needs to be send with the next ACK
-            con->next_ack_num_to_send = tcp_head.seq_num + payload_len;
+            // let's hope this works
+            *payload = malloc(payload_len);
+            memcpy(*payload, pkg+payload_offset, payload_len);
         }
+        ret = payload_len;
+
         free(pkg);
     }
 
@@ -225,7 +267,22 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
 
 }
 
+static void raw2payload_shoveling(int fd, void* payload, size_t payload_len) {
+    // get the connection struct
+    tcp_conn_t* con = fetch_con_by_fd(fd);
+
+    if (payload != NULL && payload_len > 0) {
+        void* payload = malloc(payload_len);
+        memcpy(payload, payload, payload_len);
+        buffer_queue_enqueue(&con->payload_read_queue, payload, payload_len);
+        printf("Enqueueing %zu bytes of payload\n", payload_len);
+    }
+}
+
 static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
+
+    if(tcp_head == NULL)
+        return;
 
     // set last_flag_recv according to flags
     if (tcp_head->syn && tcp_head->ack)
@@ -269,12 +326,15 @@ int tcp_manager_close(int fd) {
 }
 
 tcp_conn_t* fetch_con_by_fd(int fd) {
+    //printf("fetching con by fd\n");
     tcp_conn_t* aux;
     for (aux = TCPMGR.connections; aux != NULL; aux = aux->next) {
         if (aux->fd == fd) {
+            //printf("Returning con %d\n", aux->fd);
             return aux;
         }
     }
+    printf("CON NOT FOUND!\n");
     return NULL; // no result was found
 }
 

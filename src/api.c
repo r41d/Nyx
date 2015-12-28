@@ -5,7 +5,7 @@
 #include <netinet/in.h>
 
 #include <sys/ioctl.h> // SIOCGIFINDEX
-#include <net/if.h>
+#include <net/if.h> // ifreq
 
 #include <errno.h>
 #include "api.h"
@@ -28,9 +28,10 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     memset(&ifr, 0, sizeof(ifr));
     snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interface);
     ioctl(raw_fd, SIOCGIFINDEX, &ifr);
-    printf("Index for interface %s is %i\n", interface, ifr.ifr_ifindex);
+    //printf("Index for interface %s is %i\n", interface, ifr.ifr_ifindex);
     // Bind socket to interface index.
-    setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof (ifr));
+    printf("Binding raw socket to interface %s\n", interface);
+    setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
 
 
     // remember this particular connection in our TCP state
