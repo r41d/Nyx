@@ -7,9 +7,28 @@
 #include "tcp.h"
 #include "tcp_manager.h"
 
-void serialize_tcp (char* buf, const tcp_header_t* header) {
-    buf[0] = htons(header->src_port);
-    buf[2] = htons(header->dest_port);
+void serialize_uint32(char* buffer, uint32_t arg) {
+    buffer[3] = (uint8_t) (arg >> 24);
+    buffer[2] = (uint8_t) (arg >> 16);
+    buffer[1] = (uint8_t) (arg >> 8);
+    buffer[0] = (uint8_t) (arg);
+}
+
+void serialize_uint16(char* buffer, uint16_t arg) {
+    printf("serialize_uint16 start\n");
+    buffer[1] = (uint8_t) (arg >> 8);
+    buffer[0] = (uint8_t) (arg);
+    printf("serialize_uint16 end\n");
+}
+
+void serialize_tcp(char* buf, const tcp_header_t* header) {
+
+    serialize_uint16(buf, htons(header->src_port));
+    //buf[0] = htons(header->src_port);
+
+    serialize_uint16(buf+2, htons(header->dest_port));
+    //buf[2] = htons(header->dest_port);
+
     buf[4] = htonl(header->seq_num);
     buf[8] = htonl(header->ack_num);
     buf[12] = header->data_offset << 4;
@@ -32,7 +51,7 @@ void serialize_tcp (char* buf, const tcp_header_t* header) {
     }
 }
 
-void deserialize_tcp (tcp_header_t* header, const char* buf) {
+void deserialize_tcp(tcp_header_t* header, const char* buf) {
     header->src_port = ntohs(*((uint16_t*) &buf[0]));
     header->dest_port = ntohs(*((uint16_t*) &buf[2]));
     header->seq_num = ntohl(*((uint32_t*) &buf[4]));
@@ -56,7 +75,7 @@ void deserialize_tcp (tcp_header_t* header, const char* buf) {
     }
 }
 
-void dump_tcp_header (tcp_header_t* header) {
+void dump_tcp_header(tcp_header_t* header) {
 	printf("TCP HEADER DUMP:\n");
 	printf("TCP-src_port:    %d\n", header->src_port);
 	printf("TCP-dest_port:   %d\n", header->dest_port);
@@ -77,6 +96,7 @@ void dump_tcp_header (tcp_header_t* header) {
         for (int i = 0; i < header->data_offset*4-20; i+=4) {
             printf(" %08x", header->options[i]);
         }
+        printf("\n");
     }
 }
 

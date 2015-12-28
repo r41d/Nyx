@@ -32,7 +32,7 @@ typedef struct { // groups of 4 bytes each
 
 } ipv4_header_t;
 
-void serialize_ipv4 (char* buf, const ipv4_header_t* header);
-void deserialize_ipv4 (ipv4_header_t* header, const char* buf);
-void dump_ipv4_header (ipv4_header_t* header);
+void serialize_ipv4(char* buf, const ipv4_header_t* header);
+void deserialize_ipv4(ipv4_header_t* header, const char* buf);
+void dump_ipv4_header(ipv4_header_t* header);
 ipv4_header_t* assemble_ipv4_header(uint16_t payload_length, uint32_t src, uint32_t dest);

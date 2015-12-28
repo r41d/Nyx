@@ -253,13 +253,15 @@ static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, 
 
         // do the ip thing
         deserialize_ipv4(ipv4_head, pkg);
-        printf("Got an IPv4 header\n");
+        printf("Got an IPv4 header:\n");
+        dump_ipv4_header(ipv4_head);
         *ipv4_head_p = ipv4_head;
 
         // do the tcp thing
         tcp_header_t* tcp_head = malloc(sizeof(tcp_header_t));
         deserialize_tcp(tcp_head, pkg + (ipv4_head->ihl << 2));
         printf("Got a TCP header\n");
+        dump_tcp_header(tcp_head);
         *tcp_head_p = tcp_head;
 
         // determine if we have any payload and return the amount of bytes it has
@@ -318,6 +320,8 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     // update received ACKs
     if (tcp_head->ack)
         con->last_ack_num_rcvd = tcp_head->ack_num;
+
+    con->next_ack_num_to_send = tcp_head->seq_num;
 
     // update the state according to TCP FSA (see update_state.h)
     update_state(con);
@@ -401,12 +405,12 @@ static void send_synack_packet(tcp_conn_t* con) {
 
 int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len) {
 
-    if(sendto(con->fd,                       /* our socket */
-             datagram,                 /* the buffer containing headers and data */
-             dgram_len,             /* total length of our datagram */
-             0,                        /* routing flags, normally always 0 */
-             (struct sockaddr *) &con->sin, /* socket addr, just like in */
-             sizeof (con->sin)) < 0)        /* a normal send() */
+    if(sendto(con->fd,                       // our socket
+              datagram,                      // the buffer containing headers and data
+              dgram_len,                     // total length of our datagram
+              0,                             // routing flags, normally always 0
+              (struct sockaddr *) &con->sin, // socket addr, just like in
+              sizeof(con->sin)) < 0)         // a normal send()
        printf("sendto() error!!!.\n");
     else
       printf("sendto() success\n");

@@ -4,13 +4,14 @@
 #include <stddef.h>
 #include <string.h>
 #include <netinet/in.h>
+#include <arpa/inet.h> // inet_ntoa
 #include "ipv4.h"
 
 int get_header_size(const ipv4_header_t* header) {
 	return header->length << 2;
 }
 
-void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
+void serialize_ipv4(char* buf, const ipv4_header_t* header) {
 	buf[0] = header->version << 4 | header->ihl;
 	buf[1] = header->tos;
 	buf[2] = htons(header->length);
@@ -33,7 +34,7 @@ void serialize_ipv4 (char* buf, const ipv4_header_t* header) {
 	}
 }
 
-void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
+void deserialize_ipv4(ipv4_header_t* header, const char* buf) {
 	header->version = buf[0] >> 4;
 	if (header->version != 4)
 		printf("MALFORMED IP HEADER: VERSION IS NOT 4!\n");
@@ -67,7 +68,7 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 	}
 }
 
-void dump_ipv4_header (ipv4_header_t* header) {
+void dump_ipv4_header(ipv4_header_t* header) {
 	printf("IPv4 HEADER DUMP:\n");
 	printf("IPv4-Version:    %d\n", header->version);
 	printf("IPv4-IHL:        %d (%d bytes)\n", header->ihl, header->ihl*4);
@@ -81,8 +82,15 @@ void dump_ipv4_header (ipv4_header_t* header) {
 	printf("IPv4-TTL:        %d\n", header->ttl);
 	printf("IPv4-Protocol:   %d\n", header->protocol);
 	printf("IPv4-Checksum:   %x\n", header->checksum);
-	printf("IPv4-SrcAddr:    %08x\n", header->src_addr);
-	printf("IPv4-DestAddr:   %08x\n", header->dest_addr);
+
+	struct in_addr addr;
+	addr.s_addr = ntohl(header->src_addr);
+	printf("IPv4-SrcAddr:    %s (%08x)\n", inet_ntoa(addr), header->src_addr);
+
+	addr.s_addr = ntohl(header->dest_addr);
+	printf("IPv4-DestAddr:   %s (%08x)\n", inet_ntoa(addr), header->dest_addr);
+
+
 	if (header->ihl*4 > 20) {
     	printf("IPv4-Options:   ");
         for (int i = 0; i < header->ihl*4-20; i+=4) {
