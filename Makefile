@@ -6,7 +6,7 @@
 # |____/ |_|   |_| |_____|  \___/|_| \_\____/|_____|_| \_(_|_|_)
 #
 CC := gcc
-CFLAGS := -g -std=c99 -Wall # -Wextra
+CFLAGS := -g -std=gnu99 -Wall # -Wextra
 
 SRCDIR := src
 PROGRAMDIR := program
@@ -48,4 +48,3 @@ clean:
 	-rm $(PROGRAMSTARGET)
 
 force: clean nyx rights
-
