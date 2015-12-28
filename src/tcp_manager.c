@@ -11,10 +11,11 @@
 #include "buffer_queue.h"
 #include "update_state.h"
 
-static uint16_t read_raw_socket(int fd);
-static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
-static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload);
-static void send_empty_ack_packet(int fd, int ack_num);
+static uint16_t read_raw_socket(tcp_conn_t* con);
+static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
+static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload);
+static void send_empty_ack_packet(tcp_conn_t* con);
+static void send_synack_packet(tcp_conn_t* con);
 static int fd_set_blocking(int fd, int blocking);
 static void raw2payload_shoveling(int fd, void* payload, size_t payload_len);
 
@@ -32,10 +33,11 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     tcp_conn_t* con = malloc(sizeof(tcp_conn_t));
 
     con->fd = fd;
-    con->remote_ipaddr = ipaddress;
-    con->remote_port = port;
+    con->local_ipaddr = ipaddress;
+    con->local_port = port;
 
-    con->local_port = htons(1337); // TODO: generate randomly
+    con->remote_ipaddr = 0;
+    con->remote_port = 0;
 
     con->state = LISTEN;
     con->newstate = LISTEN; // no transition yet
@@ -44,6 +46,10 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     con->flag_to_be_send = NOTHING;
 
     con->local_seq_num = 100; // start with 100 for fun and profit
+    con->last_ack_num_rcvd = 0;
+
+    con->last_ack_num_sent = 0;
+    con->next_ack_num_to_send = 0;
 
     buffer_queue_init(&con->raw_read_queue);
     buffer_queue_init(&con->payload_read_queue);
@@ -62,10 +68,41 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     return 0;
 }
 
+int tcp_handshake(int fd) {
+
+    printf("HANDSHAKING!\n");
+
+    // get the connection struct
+    tcp_conn_t* con = fetch_con_by_fd(fd);
+
+    do {
+        read_raw_socket(con);
+        ipv4_header_t* ipv4_head = NULL;
+        tcp_header_t* tcp_head = NULL;
+        void* payload = NULL;
+        uint16_t payload_bytes_available = process_raw_queue(con, &ipv4_head, &tcp_head, &payload);
+        if (payload_bytes_available != 0) {
+            printf("GOT PAYLOAD DURING HANDSHAKE\n");
+        }
+        if (tcp_head != NULL) {
+            con->remote_ipaddr = ipv4_head->src_addr;
+            con->remote_port = tcp_head->src_port;
+            handle_tcp_header(con, tcp_head);
+        }
+    } while (con->state != ESTABLISHED);
+
+    return 0;
+}
+
 int tcp_manager_read(int fd, void* buf, size_t count) {
 
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
+
+    if (con->state != ESTABLISHED) {
+        printf("tcp_manager_read call in non-ESTABLISHED state!!!");
+        return -1;
+    }
 
     size_t bytes_ready = 0;
 
@@ -76,19 +113,19 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
         // read from raw socket as much as possible in NONBLOCKing mode
         // printf("read_raw_socket\n");
 
-        uint16_t got_raw = read_raw_socket(fd);
+        uint16_t got_raw = read_raw_socket(con);
         if (got_raw)
             printf("got %d from read_raw_socket\n", got_raw);
-
-
 
         // shovel from raw queue to payload queue
         // printf("process_raw_queue\n");
         ipv4_header_t* ipv4_head = NULL;
         tcp_header_t* tcp_head = NULL;
         void* payload = NULL;
-        uint16_t payload_bytes_available = process_raw_queue(fd, &ipv4_head, &tcp_head, &payload);
+        uint16_t payload_bytes_available = process_raw_queue(con, &ipv4_head, &tcp_head, &payload);
         // any of ipv4_head, tcp_head or payload may be NULL after this call!
+
+        if (tcp_head != NULL && con->state)
 
         // here the state transitioning (and stuff) is done
         handle_tcp_header(con, tcp_head);
@@ -112,7 +149,7 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     if (con->next_ack_num_to_send > con->last_ack_num_sent) {
         // give the client the ACK
         printf("send_empty_ack_packet\n");
-        send_empty_ack_packet(fd, con->next_ack_num_to_send);
+        send_empty_ack_packet(con);
     }
 
     printf("buffer_queue_dequeue\n");
@@ -121,60 +158,26 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     return payload_got;
 }
 
-static void send_empty_ack_packet(int fd, int ack_num) {
-
-    printf("sending empty ack...\n");
-
-    // get the connection struct
-    tcp_conn_t* con = fetch_con_by_fd(fd);
-
-    //tcp_header_t* assemble_tcp_header(uint16_t src_port,
-    //                                  uint16_t dest_port,
-    //                                  uint32_t seq_num,
-    //                                  uint32_t ack_num,
-    //                                  flag_t flags_to_be_send,
-    //                                  uint16_t window);
-    tcp_header_t* ack_tcp_head =
-        assemble_tcp_header(con->local_port,
-                            con->remote_port,
-                            con->local_seq_num,
-                            ack_num,
-                            ACK,
-                            4 << 8); // Receive Window = 4 kilobyte
-    char* buf = malloc(TCP_HEADER_BASE_LENGTH);
-    serialize_tcp(buf, ack_tcp_head);
-
-    // write the ack tcp header to raw socket
-    // we only need to send the tcp header, IP is taken care of
-    write(fd, buf, TCP_HEADER_BASE_LENGTH);
-
-    free(ack_tcp_head);
-    free(buf);
-}
-
-// read from raw socket as much as possible
-static uint16_t read_raw_socket(int fd) {
+// read from raw socket until we get something
+static uint16_t read_raw_socket(tcp_conn_t* con) {
 
     //printf("tcp manager raw read\n");
 
     ssize_t rcvd;
     size_t total = 0;
 
-    // get the connection struct
-    tcp_conn_t* con = fetch_con_by_fd(fd);
-
     // turn to nonblocking mode
-    fd_set_blocking(fd, false);
+    //fd_set_blocking(fd, false);
 
     do {
-        //printf("mallocing 512...\n");
+        printf("mallocing 512...\n");
         void* rawbuf = malloc(512);
-        //printf("read on raw...\n");
-        rcvd = read(con->fd, rawbuf, 512);
-        // printf("%zd \n", rcvd);
-        if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
-            rcvd = 0; // was -1
-        }
+        printf("read on raw...\n");
+        rcvd = read(con->fd, rawbuf, 512); // this blocks per default
+        printf("rcvd: %zd \n", rcvd);
+        //if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
+        //    rcvd = 0; // was -1 most probably
+        //}
         rawbuf = realloc(rawbuf, rcvd); // deallocates if rcvd=0
         if (rcvd > 0) {
             // printf("read_raw_socket: %d: %x\n", rcvd, rawbuf);
@@ -183,26 +186,25 @@ static uint16_t read_raw_socket(int fd) {
             buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
             total += rcvd;
         }
-    } while(rcvd > 0);
+    } while(total <= 0);
+
+    printf("TADA\n");
 
     // back to blocking mode
-    fd_set_blocking(fd, true);
+    //fd_set_blocking(fd, true);
 
     return total;
 }
 
 // shovel from raw queue to payload queue
-static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload) {
+static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload) {
     *ipv4_head_p = NULL;
     *tcp_head_p = NULL;
     *payload = NULL;
 
-    // printf("tcp manager process raw queue\n");
+    printf("tcp manager process raw queue\n");
 
     int ret;
-
-    // get the connection struct
-    tcp_conn_t* con = fetch_con_by_fd(fd);
 
     if (buffer_queue_length(&con->raw_read_queue) < 20) {
         // printf("raw read queue < 20\n");
@@ -216,40 +218,39 @@ static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_heade
     size_t got = buffer_queue_top(&con->raw_read_queue, checkbuf, IPV4_HEADER_BASE_LENGTH);
 
     if (got < IPV4_HEADER_BASE_LENGTH) {
-        free(checkbuf);
-        return 0;
+        ret = 0;
+        goto noipheader;
     }
 
-    // we have a complete IPv4 Header at this point!
+    // if we got this far, we have a complete IPv4 Header!!!
 
-    ipv4_header_t ipv4_head; // crumple the stack, it's fun
-    printf("Got an IPv4 header\n");
-    deserialize_ipv4(&ipv4_head, checkbuf); // additional options on this one may be filled with gargabe
+    ipv4_header_t* ipv4_head = malloc(sizeof(ipv4_header_t));
+    deserialize_ipv4(ipv4_head, checkbuf);
+    // additional options on this one may be filled with gargabe because checkbuf is capped at 20 bytes
 
-    if (buffer_queue_length(&con->raw_read_queue) >= ipv4_head.length) {
+    if (buffer_queue_length(&con->raw_read_queue) >= ipv4_head->length) {
         // WE ARE GO, THERE'S A WHOLE PACKET READY FOR PICKUP
 
-        uint16_t pkg_len = ipv4_head.length;
+        void* pkg = malloc(ipv4_head->length);
+        size_t got = buffer_queue_dequeue(&con->raw_read_queue, pkg, ipv4_head->length);
 
-        void* pkg = malloc(pkg_len);
-        size_t got = buffer_queue_dequeue(&con->raw_read_queue, pkg, pkg_len);
-
-        if (got != pkg_len)
-            printf("ERROR: got != pkg_len\n");
+        if (got != ipv4_head->length)
+            printf("ERROR: got != ipv4_head->length\n");
 
         // do the ip thing
-        deserialize_ipv4(&ipv4_head, pkg);
-        *ipv4_head_p = &ipv4_head;
+        deserialize_ipv4(ipv4_head, pkg);
+        printf("Got an IPv4 header\n");
+        *ipv4_head_p = ipv4_head;
 
         // do the tcp thing
-        tcp_header_t tcp_head; // crumple, crumple, ...
+        tcp_header_t* tcp_head = malloc(sizeof(tcp_header_t));
+        deserialize_tcp(tcp_head, pkg + (ipv4_head->ihl << 2));
         printf("Got a TCP header\n");
-        deserialize_tcp(&tcp_head, pkg + (ipv4_head.ihl << 2));
-        *tcp_head_p = &tcp_head;
+        *tcp_head_p = tcp_head;
 
         // determine if we have any payload and return the amount of bytes it has
-        size_t payload_offset = (ipv4_head.ihl << 2) + (tcp_head.data_offset << 2);
-        size_t payload_len = pkg_len - payload_offset;
+        size_t payload_offset = (ipv4_head->ihl << 2) + (tcp_head->data_offset << 2);
+        size_t payload_len = ipv4_head->length - payload_offset;
         if (payload_len > 0) {
             // let's hope this works
             *payload = malloc(payload_len);
@@ -259,6 +260,8 @@ static uint16_t process_raw_queue(int fd, ipv4_header_t** ipv4_head_p, tcp_heade
 
         free(pkg);
     }
+
+    noipheader:
 
     // clean up
     free(checkbuf);
@@ -279,10 +282,12 @@ static void raw2payload_shoveling(int fd, void* payload, size_t payload_len) {
     }
 }
 
-static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
+static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
 
-    if(tcp_head == NULL)
-        return;
+    if (tcp_head == NULL)
+        return -1;
+
+    int ret = 0;
 
     // set last_flag_recv according to flags
     if (tcp_head->syn && tcp_head->ack)
@@ -303,8 +308,12 @@ static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     // update the state according to TCP FSA (see update_state.h)
     update_state(con);
 
-    // here, we can insert stuff that needs to know both the old and the new state
-    // ...
+    if (con->flag_to_be_send == SYNACK) {
+        // we just went from LISTEN to SYN_RECEIVED, we now need to send a SYNACK
+        printf("HERE I WILL SEND A SYNACK!!!!!\n");
+        send_synack_packet(con);
+    }
+
 
     // new the new state the actual state
     printf("Changing state from %u to %u\n", con->state, con->newstate);
@@ -312,6 +321,7 @@ static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
 
     // after this, state and newstate are the same
 
+    return ret;
 }
 
 int tcp_manager_write(int fd, void* buf, size_t count) {
@@ -323,6 +333,58 @@ int tcp_manager_write(int fd, void* buf, size_t count) {
 int tcp_manager_close(int fd) {
 
     return -1;
+}
+
+
+static void send_empty_ack_packet(tcp_conn_t* con) {
+
+    printf("sending empty ack...\n");
+
+    tcp_header_t* ack_tcp_head =
+        assemble_tcp_header(con->local_port,
+                            con->remote_port,
+                            con->local_seq_num,
+                            con->next_ack_num_to_send,
+                            ACK,
+                            4 << 8); // Receive Window = 4 kilobyte
+    char* buf = malloc(TCP_HEADER_BASE_LENGTH);
+    serialize_tcp(buf, ack_tcp_head);
+
+    // write the ack tcp header to raw socket
+    // we only need to send the tcp header, IP is taken care of
+    write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+
+    free(ack_tcp_head);
+    free(buf);
+}
+
+static void send_synack_packet(tcp_conn_t* con) {
+    printf("sending SYNACK...\n");
+
+    //tcp_header_t* assemble_tcp_header(uint16_t src_port,
+    //                                  uint16_t dest_port,
+    //                                  uint32_t seq_num,
+    //                                  uint32_t ack_num,
+    //                                  flag_t flags_to_be_send,
+    //                                  uint16_t window);
+    tcp_header_t* ack_tcp_head =
+        assemble_tcp_header(con->local_port,
+                            con->remote_port,
+                            con->local_seq_num,
+                            con->next_ack_num_to_send,
+                            SYNACK,
+                            4 << 8); // Receive Window = 4 kilobyte
+    char* buf = malloc(TCP_HEADER_BASE_LENGTH);
+    serialize_tcp(buf, ack_tcp_head);
+
+    // write the ack tcp header to raw socket
+    // we only need to send the tcp header, IP is taken care of
+    write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+
+    free(ack_tcp_head);
+    free(buf);
+
+    printf("SENT SYNACK PACKET...\n");
 }
 
 tcp_conn_t* fetch_con_by_fd(int fd) {

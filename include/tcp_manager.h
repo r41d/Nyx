@@ -34,17 +34,18 @@ typedef enum {
 
 typedef struct tcp_conn_t {
     int fd;
+    uint32_t local_ipaddr;
+    uint16_t local_port;
+
     uint32_t remote_ipaddr;
     uint16_t remote_port;
-
-    uint16_t local_port;
 
     tcp_conn_state_t state;
     tcp_conn_state_t newstate;
     flag_t last_flag_recv;
     flag_t flag_to_be_send;
 
-    uint32_t local_seq_num; // this is out incrementing seq num for sending
+    uint32_t local_seq_num; // this is our incrementing seq num for sending
     uint32_t last_ack_num_rcvd; // this is as far as we got ACKs
 
     uint32_t last_ack_num_sent; // outgoing
@@ -66,6 +67,7 @@ typedef struct {
 
 void tcp_manager_initialize();
 int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port);
+int tcp_handshake(int fd);
 int tcp_manager_read(int fd, void* buf, size_t count);
 int tcp_manager_write(int fd, void* buf, size_t count);
 int tcp_manager_close(int fd);

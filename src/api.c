@@ -33,11 +33,11 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     printf("Binding raw socket to interface %s\n", interface);
     setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
 
-
     // remember this particular connection in our TCP state
     tcp_manager_register(raw_fd, ipaddress, port);
 
     // initiate three-way handshake (ONLY THE SERVER SIDE)
+    int handshake = tcp_handshake(raw_fd);
 
     return raw_fd;
 }
