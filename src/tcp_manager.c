@@ -98,6 +98,15 @@ int tcp_handshake(int fd) {
         }
     } while (con->state != ESTABLISHED);
 
+    printf("HANDSHAKING DONE!\n");
+
+printf(" _   _    _    _   _ ____  ____  _   _    _    _  _____ _   _  ____   ____   ___  _   _ _____ ");
+printf("| | | |  / \\  | \\ | |  _ \\/ ___|| | | |  / \\  | |/ /_ _| \\ | |/ ___| |  _ \\ / _ \\| \\ | | ____|");
+printf("| |_| | / _ \\ |  \\| | | | \\___ \\| |_| | / _ \\ | ' / | ||  \\| | |  _  | | | | | | |  \\| |  _|  ");
+printf("|  _  |/ ___ \\| |\\  | |_| |___) |  _  |/ ___ \\| . \\ | || |\\  | |_| | | |_| | |_| | |\\  | |___ ");
+printf("|_| |_/_/   \\_\\_| \\_|____/|____/|_| |_/_/   \\_\\_|\\_\\___|_| \\_|\\____| |____/ \\___/|_| \\_|_____|");
+
+
     return 0;
 }
 
@@ -177,11 +186,8 @@ static uint16_t read_raw_socket(tcp_conn_t* con) {
     //fd_set_blocking(fd, false);
 
     do {
-        printf("mallocing 512...\n");
         void* rawbuf = malloc(512);
-        printf("read on raw...\n");
         rcvd = read(con->fd, rawbuf, 512); // this blocks per default
-        printf("rcvd: %zd \n", rcvd);
         //if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
         //    rcvd = 0; // was -1 most probably
         //}
@@ -197,8 +203,6 @@ static uint16_t read_raw_socket(tcp_conn_t* con) {
             total += rcvd;
         }
     } while(total <= 0);
-
-    printf("TADA\n");
 
     // back to blocking mode
     //fd_set_blocking(fd, true);
@@ -322,6 +326,7 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
         // we just went from LISTEN to SYN_RECEIVED, we now need to send a SYNACK
         printf("HERE I WILL SEND A SYNACK!!!!!\n");
         send_synack_packet(con);
+        con->flag_to_be_send = NOTHING;
     }
 
 
@@ -375,12 +380,9 @@ static void send_synack_packet(tcp_conn_t* con) {
     printf("sending SYNACK...\n");
 
     tcp_header_t* ack_tcp_head =
-        assemble_tcp_header(con->local_port,
-                            con->remote_port,
-                            con->local_seq_num,
-                            con->next_ack_num_to_send,
-                            SYNACK,
-                            4 << 8); // Receive Window = 4 kilobyte
+        assemble_tcp_header(con->local_port, con->remote_port,
+                            con->local_seq_num, con->next_ack_num_to_send,
+                            SYNACK, (4 << 8) << 2); // Receive Window = 4 kilobyte
     char* buf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(buf, ack_tcp_head);
 

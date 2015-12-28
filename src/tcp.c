@@ -12,7 +12,7 @@ void serialize_tcp (char* buf, const tcp_header_t* header) {
     buf[2] = htons(header->dest_port);
     buf[4] = htonl(header->seq_num);
     buf[8] = htonl(header->ack_num);
-    buf[12] = ( header->data_offset );
+    buf[12] = header->data_offset << 4;
     buf[13] = 0b00000000
              | header->urg << 5
              | header->ack << 4

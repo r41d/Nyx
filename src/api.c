@@ -13,6 +13,7 @@
 #include "tcp_manager.h"
 
 
+bool SET_IP_HDRINCL = false;
 bool BINDING = false;
 bool RESTRICT_LOOPBACK = true;
 
@@ -25,12 +26,14 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     //int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW); // IPPROTO_RAW = we need to also do IPv4 on our own
     printf("Got raw fd: %d %s\n", raw_fd, strerror(errno));
 
-    // we want to do the header on our own
-    int tmp = 1;
-    const int *val = &tmp;
-    if (setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp)) < 0) {
-        printf("Error: setsockopt() - Cannot set HDRINCL!\n");
-        exit(-1);
+    if (SET_IP_HDRINCL) {
+        // we want to do the header on our own
+        int tmp = 1;
+        const int *val = &tmp;
+        if (setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp)) < 0) {
+            printf("Error: setsockopt() - Cannot set HDRINCL!\n");
+            exit(-1);
+        }
     }
 
     if (BINDING) {
