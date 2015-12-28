@@ -42,8 +42,8 @@ void deserialize_ipv4 (ipv4_header_t* header, const char* buf) {
 		printf("MALFORMED IP HEADER: HEADER IS SUPPOSEDLY SMALLER THAN 20 BYTES!\n");
 	header->tos = buf[1];
 	header->length = ntohs( *((uint16_t*) &buf[2]));
-	if (header->length < 41 || header->length > 1500)
-		printf("MALFORMED IP HEADER: LENGTH IS NOT IN {41,...,1500}!\n");
+	if (header->length < 40 || header->length > 1500)
+		printf("MALFORMED IP HEADER: LENGTH IS NOT IN {40,...,1500}!\n");
 	header->identification = ntohs( *((uint16_t*) &buf[4]));
 	header->flag_0 = (buf[6] >> 7) & 0b1;
 	if (header->flag_0 != 0)

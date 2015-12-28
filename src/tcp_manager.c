@@ -3,6 +3,8 @@
 #include <unistd.h> // read()
 #include <sys/types.h> // ssize_t
 #include <netinet/in.h> // ntohs()
+#include <fcntl.h> // fcntl()
+#include <errno.h>
 #include "tcp_manager.h"
 #include "ipv4.h"
 #include "tcp.h"
@@ -13,6 +15,7 @@ static uint16_t tcp_manager_raw_read(int fd);
 static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
 static uint16_t tcp_manager_process_raw_queue(int fd);
 static void send_empty_ack_packet(int fd, int ack_num);
+static int fd_set_blocking(int fd, int blocking);
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -63,16 +66,26 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
-    // read from raw socket as much as possible
-    printf("tcp_manager_raw_read\n");
-    uint16_t got_raw = tcp_manager_raw_read(fd);
+    size_t bytes_ready = 0;
 
-    // shovel from raw queue to payload queue
-    printf("tcp_manager_process_raw_queue\n");
-    uint16_t shoveled = tcp_manager_process_raw_queue(fd);
+    while (bytes_ready < 1) {
+        // read from raw socket as much as possible in NONBLOCKing mode
+        // printf("tcp_manager_raw_read\n");
+        uint16_t got_raw = tcp_manager_raw_read(fd);
+        if (got_raw)
+            printf("got %d from tcp_manager_raw_read\n", got_raw);
+
+        // shovel from raw queue to payload queue
+        // printf("tcp_manager_process_raw_queue\n");
+        uint16_t shoveled = tcp_manager_process_raw_queue(fd);
+        if (shoveled)
+            printf("shoveled %d from tcp_manager_process_raw_queue\n", shoveled);
+        bytes_ready += shoveled;
+    }
+
 
     if (con->next_ack_num_to_send > con->last_ack_num_sent) {
-        // give the client the ACk immediately
+        // give the client the ACK
         printf("send_empty_ack_packet\n");
         send_empty_ack_packet(fd, con->next_ack_num_to_send);
     }
@@ -120,16 +133,26 @@ static uint16_t tcp_manager_raw_read(int fd) {
     // get the connection struct
     tcp_conn_t* con = fetch_con_by_fd(fd);
 
+    // turn to nonblocking mode
+    fd_set_blocking(fd, true);
+
     do {
         void* rawbuf = malloc(512);
         rcvd = read(con->fd, rawbuf, 512);
-        printf("%d\n", rcvd);
+        if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
+            rcvd = 0; // was -1
+        }
         rawbuf = realloc(rawbuf, rcvd); // deallocates if rcvd=0
         if (rcvd > 0) {
+            // printf("tcp_manager_raw_read: %d: %x\n", rcvd, rawbuf);
+            fwrite(rawbuf, rcvd, 1, stdout);
             buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
             total += rcvd;
         }
     } while(rcvd > 0);
+
+    // back to blocking mode
+    fd_set_blocking(fd, false);
 
     return total;
 }
@@ -157,6 +180,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
     // we have a complete IPv4 Header!
 
     ipv4_header_t ipv4_head; // crumple the stack, it's fun
+    printf("Got an IPv4 header\n");
     deserialize_ipv4(&ipv4_head, checkbuf); // additional options on this one may be filled with gargabe
 
     if (buffer_queue_length(&con->raw_read_queue) >= ipv4_head.length) {
@@ -175,6 +199,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
 
         // do the tcp thing
         tcp_header_t tcp_head; // crumple, crumple, ...
+        printf("Got a TCP header\n");
         deserialize_tcp(&tcp_head, pkg + (ipv4_head.ihl << 2));
 
         handle_tcp_header(con, &tcp_head);
@@ -186,6 +211,7 @@ static uint16_t tcp_manager_process_raw_queue(int fd) {
             void* payload = malloc(payload_len);
             memcpy(payload, pkg+payload_offset, payload_len);
             buffer_queue_enqueue(&con->payload_read_queue, pkg+payload_offset, payload_len);
+            printf("Enqueueing %zu bytes of payload\n", payload_len);
             // this ack number needs to be send with the next ACK
             con->next_ack_num_to_send = tcp_head.seq_num + payload_len;
         }
@@ -224,6 +250,7 @@ static void handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     // ...
 
     // new the new state the actual state
+    printf("Changing state from %u to %u\n", con->state, con->newstate);
     con->state = con->newstate;
 
     // after this, state and newstate are the same
@@ -249,4 +276,27 @@ tcp_conn_t* fetch_con_by_fd(int fd) {
         }
     }
     return NULL; // no result was found
+}
+
+/** http://code.activestate.com/recipes/577384-setting-a-file-descriptor-to-blocking-or-non-block/
+ *
+ * Set a file descriptor to blocking or non-blocking mode.
+ *
+ * @param fd The file descriptor
+ * @param blocking 0:non-blocking mode, 1:blocking mode
+ *
+ * @return 1:success, 0:failure.
+ **/
+static int fd_set_blocking(int fd, int blocking) {
+    /* Save the current flags */
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1)
+        return 0;
+
+    if (blocking)
+        flags &= ~O_NONBLOCK;
+    else
+        flags |= O_NONBLOCK;
+
+    return (fcntl(fd, F_SETFL, flags) != -1);
 }
