@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <netinet/in.h>
+#include <arpa/inet.h> // inet_aton()
 
 #include <sys/ioctl.h> // SIOCGIFINDEX
 #include <net/if.h> // ifreq
@@ -11,27 +12,41 @@
 #include "api.h"
 #include "tcp_manager.h"
 
+
+bool RESTRICT_LOOPBACK = true;
+
+
 int nyx_accept(uint16_t port, uint32_t ipaddress) {
+    int s;
 
     // make new raw socket
     int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    //int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW); // IPPROTO_RAW = we need to also do IPv4 on our own
     printf("Got raw fd: %d %s\n", raw_fd, strerror(errno));
 
+    // Bind socket so that we can receive stuff
+    struct sockaddr_in myaddr;
+    myaddr.sin_family = AF_INET; // sin_family is always set to AF_INET.
+    // The basic IP protocol does not supply port numbers, they are implemented by higher level protocols like udp(7) and tcp(7). On raw sockets sin_port is set to the IP protocol.
+    myaddr.sin_port = 6; // 6 = TCP // htons(port);
+    //inet_aton("127.0.0.1", &myaddr.sin_addr.s_addr);
+    myaddr.sin_addr.s_addr = htonl(ipaddress);
+    s = bind(raw_fd, (struct sockaddr *) &myaddr, sizeof(struct sockaddr_in));
+    printf("bind(): %d\n", s);
 
     /* BIND SOCKET TO LOCAL LOOPBACK INTERFACE */
+    if (RESTRICT_LOOPBACK) {
+        char* interface = "lo"; // Interface to send packet through.
+        struct ifreq ifr;
+        memset(&ifr, 0, sizeof(ifr));
+        snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interface);
+        ioctl(raw_fd, SIOCGIFINDEX, &ifr); // Use ioctl() to look up interface index which we will use to
+        //printf("Index for interface %s is %i\n", interface, ifr.ifr_ifindex);
+        printf("Binding raw socket to interface %s\n", interface);
+        setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)); // bind socket descriptor fd to specified interface with setsockopt()
+    }
 
-    // Interface to send packet through.
-    char* interface = "lo";
-    // Use ioctl() to look up interface index which we will use to
-    // bind socket descriptor fd to specified interface with setsockopt()
-    struct ifreq ifr;
-    memset(&ifr, 0, sizeof(ifr));
-    snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interface);
-    ioctl(raw_fd, SIOCGIFINDEX, &ifr);
-    //printf("Index for interface %s is %i\n", interface, ifr.ifr_ifindex);
-    // Bind socket to interface index.
-    printf("Binding raw socket to interface %s\n", interface);
-    setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr));
+
 
     // remember this particular connection in our TCP state
     tcp_manager_register(raw_fd, ipaddress, port);

@@ -104,16 +104,17 @@ ipv4_header_t* assemble_ipv4_header(uint16_t payload_length, uint32_t src, uint3
 	v4header->version = 4;
 	v4header->ihl = 20/4; // we always have header length 20 for now
 	v4header->tos = 0b00000000;
-	v4header->length = payload_length;
-	v4header->identification = ident;
+	v4header->length = IPV4_HEADER_BASE_LENGTH + payload_length; // Always filled in by kernel
+	v4header->identification = 0 /*ident*/; // Filled in when zero
 	v4header->flag_0 = false;
 	v4header->flag_df = false;
 	v4header->flag_mr = false;
 	v4header->fragment_offset = 0b0000000000000;
 	v4header->ttl = 54; // Always 54
 	v4header->protocol = 6; // 6 = TCP
-	v4header->checksum = 0x0; // this is getting ignored anyway
-	memcpy(&v4header->src_addr, &src, sizeof(uint32_t));
+	v4header->checksum = 0x0; // Always filled in by kernel
+	//memcpy(&v4header->src_addr, &src, sizeof(uint32_t));
+	v4header->src_addr = 0; // Filled in when zero
 	memcpy(&v4header->dest_addr, &dest, sizeof(uint32_t));
 	//v4header->optional[40];
 

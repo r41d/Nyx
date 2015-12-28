@@ -36,6 +36,8 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     con->local_ipaddr = ipaddress;
     con->local_port = port;
 
+    printf("local ip: %d local port: %d\n", con->local_ipaddr, con->local_port);
+
     con->remote_ipaddr = 0;
     con->remote_port = 0;
 
@@ -178,10 +180,13 @@ static uint16_t read_raw_socket(tcp_conn_t* con) {
         //if (rcvd <= 0 && errno == EWOULDBLOCK) { // no data available
         //    rcvd = 0; // was -1 most probably
         //}
+        if (rcvd < 0) {
+            break;
+        }
         rawbuf = realloc(rawbuf, rcvd); // deallocates if rcvd=0
         if (rcvd > 0) {
             // printf("read_raw_socket: %d: %x\n", rcvd, rawbuf);
-            fwrite(rawbuf, rcvd, 1, stdout);
+            // fwrite(rawbuf, rcvd, 1, stdout);
             printf("Enqueueing %zu bytes into raw_read_queue\n", rcvd);
             buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
             total += rcvd;
@@ -340,13 +345,15 @@ static void send_empty_ack_packet(tcp_conn_t* con) {
 
     printf("sending empty ack...\n");
 
+    //ipv4_header_t* ack_ip_head =
+    //    assemble_ipv4_header(20, con->local_ipaddr, con->remote_ipaddr);
+    //char* ipbuf = malloc(IPV4_HEADER_BASE_LENGTH);
+    //serialize_ipv4(ipbuf, ack_ip_head);
+
     tcp_header_t* ack_tcp_head =
-        assemble_tcp_header(con->local_port,
-                            con->remote_port,
-                            con->local_seq_num,
-                            con->next_ack_num_to_send,
-                            ACK,
-                            4 << 8); // Receive Window = 4 kilobyte
+        assemble_tcp_header(con->local_port, con->remote_port,
+                            con->local_seq_num, con->next_ack_num_to_send,
+                            ACK, (4 << 8) << 2); // Receive Window = 4 kilobyte
     char* buf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(buf, ack_tcp_head);
 
@@ -361,12 +368,6 @@ static void send_empty_ack_packet(tcp_conn_t* con) {
 static void send_synack_packet(tcp_conn_t* con) {
     printf("sending SYNACK...\n");
 
-    //tcp_header_t* assemble_tcp_header(uint16_t src_port,
-    //                                  uint16_t dest_port,
-    //                                  uint32_t seq_num,
-    //                                  uint32_t ack_num,
-    //                                  flag_t flags_to_be_send,
-    //                                  uint16_t window);
     tcp_header_t* ack_tcp_head =
         assemble_tcp_header(con->local_port,
                             con->remote_port,
@@ -376,6 +377,8 @@ static void send_synack_packet(tcp_conn_t* con) {
                             4 << 8); // Receive Window = 4 kilobyte
     char* buf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(buf, ack_tcp_head);
+
+    dump_tcp_header(ack_tcp_head);
 
     // write the ack tcp header to raw socket
     // we only need to send the tcp header, IP is taken care of
