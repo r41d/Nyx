@@ -38,8 +38,14 @@ $(BUILDDIR)/%.o: $(SRCDIR)/%.c
 indent:
 	indent -bad -bap -nbbb -sob -cdb -sc -br -ce -cdw -cli4 -nss -npcs -cs -nsaf -nsai -nsaw -npsl -brs -brf -i4 -ts4 $(PROGRAMDIR)/*.c $(SRCDIR)/*.c $(INCLUDEDIR)/*.h
 
+rights:
+	sudo setcap cap_net_raw+ep bin/testing
+	sudo setcap cap_net_raw+ep bin/testserver
+	sudo setcap cap_net_raw+ep bin/testclient
+
 clean:
 	-rm $(BUILDDIR)/*.o
 	-rm $(PROGRAMSTARGET)
 
-force: clean nyx
+force: clean nyx rights
+
