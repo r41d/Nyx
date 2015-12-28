@@ -41,6 +41,11 @@ int tcp_manager_register(int fd, uint32_t ipaddress, uint16_t port) {
     con->remote_ipaddr = 0;
     con->remote_port = 0;
 
+    con->sin.sin_family = AF_INET; // sin_family is always set to AF_INET.
+    //con->sin->sin_port = 6; // 6 = TCP // The basic IP protocol does not supply port numbers, they are implemented by higher level protocols like udp(7) and tcp(7). On raw sockets sin_port is set to the IP protocol.
+    con->sin.sin_port = htons(port);
+    con->sin.sin_addr.s_addr = htonl(ipaddress);
+
     con->state = LISTEN;
     con->newstate = LISTEN; // no transition yet
 
@@ -359,7 +364,8 @@ static void send_empty_ack_packet(tcp_conn_t* con) {
 
     // write the ack tcp header to raw socket
     // we only need to send the tcp header, IP is taken care of
-    write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+    //write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+    write_to_raw_socket(con, buf, TCP_HEADER_BASE_LENGTH);
 
     free(ack_tcp_head);
     free(buf);
@@ -382,12 +388,27 @@ static void send_synack_packet(tcp_conn_t* con) {
 
     // write the ack tcp header to raw socket
     // we only need to send the tcp header, IP is taken care of
-    write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+    //write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
+    write_to_raw_socket(con, buf, TCP_HEADER_BASE_LENGTH);
 
     free(ack_tcp_head);
     free(buf);
 
     printf("SENT SYNACK PACKET...\n");
+}
+
+int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len) {
+
+    if(sendto(con->fd,                       /* our socket */
+             datagram,                 /* the buffer containing headers and data */
+             dgram_len,             /* total length of our datagram */
+             0,                        /* routing flags, normally always 0 */
+             (struct sockaddr *) &con->sin, /* socket addr, just like in */
+             sizeof (con->sin)) < 0)        /* a normal send() */
+       printf("sendto() error!!!.\n");
+    else
+      printf("sendto() success\n");
+
 }
 
 tcp_conn_t* fetch_con_by_fd(int fd) {

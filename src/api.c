@@ -13,6 +13,7 @@
 #include "tcp_manager.h"
 
 
+bool BINDING = false;
 bool RESTRICT_LOOPBACK = true;
 
 
@@ -24,15 +25,25 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     //int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW); // IPPROTO_RAW = we need to also do IPv4 on our own
     printf("Got raw fd: %d %s\n", raw_fd, strerror(errno));
 
-    // Bind socket so that we can receive stuff
-    struct sockaddr_in myaddr;
-    myaddr.sin_family = AF_INET; // sin_family is always set to AF_INET.
-    // The basic IP protocol does not supply port numbers, they are implemented by higher level protocols like udp(7) and tcp(7). On raw sockets sin_port is set to the IP protocol.
-    myaddr.sin_port = 6; // 6 = TCP // htons(port);
-    //inet_aton("127.0.0.1", &myaddr.sin_addr.s_addr);
-    myaddr.sin_addr.s_addr = htonl(ipaddress);
-    s = bind(raw_fd, (struct sockaddr *) &myaddr, sizeof(struct sockaddr_in));
-    printf("bind(): %d\n", s);
+    // we want to do the header on our own
+    int tmp = 1;
+    const int *val = &tmp;
+    if (setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp)) < 0) {
+        printf("Error: setsockopt() - Cannot set HDRINCL!\n");
+        exit(-1);
+    }
+
+    if (BINDING) {
+        // Bind socket so that we can receive stuff
+        struct sockaddr_in myaddr;
+        myaddr.sin_family = AF_INET; // sin_family is always set to AF_INET.
+        // The basic IP protocol does not supply port numbers, they are implemented by higher level protocols like udp(7) and tcp(7). On raw sockets sin_port is set to the IP protocol.
+        myaddr.sin_port = 6; // 6 = TCP // htons(port);
+        //inet_aton("127.0.0.1", &myaddr.sin_addr.s_addr);
+        myaddr.sin_addr.s_addr = htonl(ipaddress);
+        s = bind(raw_fd, (struct sockaddr *) &myaddr, sizeof(struct sockaddr_in));
+        printf("bind(): %d\n", s);
+    }
 
     /* BIND SOCKET TO LOCAL LOOPBACK INTERFACE */
     if (RESTRICT_LOOPBACK) {
@@ -45,8 +56,6 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
         printf("Binding raw socket to interface %s\n", interface);
         setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)); // bind socket descriptor fd to specified interface with setsockopt()
     }
-
-
 
     // remember this particular connection in our TCP state
     tcp_manager_register(raw_fd, ipaddress, port);

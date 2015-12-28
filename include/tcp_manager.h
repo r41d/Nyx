@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <netinet/ip.h> // struct sockaddr_in
 #include "buffer_queue.h"
 
 typedef enum { // this enum is mainly used in update_state to simulate the above FSM
@@ -39,6 +40,8 @@ typedef struct tcp_conn_t {
 
     uint32_t remote_ipaddr;
     uint16_t remote_port;
+
+    struct sockaddr_in sin; // sockaddr_in struct for sending
 
     tcp_conn_state_t state;
     tcp_conn_state_t newstate;
