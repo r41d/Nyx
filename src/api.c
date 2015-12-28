@@ -14,8 +14,8 @@
 
 
 bool SET_IP_HDRINCL = false;
-bool BINDING = false;
-bool RESTRICT_LOOPBACK = true;
+bool BINDING = true;
+bool RESTRICT_LOOPBACK = false;
 
 
 int nyx_accept(uint16_t port, uint32_t ipaddress) {
@@ -48,7 +48,7 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
         printf("bind(): %d\n", s);
     }
 
-    /* BIND SOCKET TO LOCAL LOOPBACK INTERFACE */
+    /* RESTRICT SOCKET TO LOCAL LOOPBACK INTERFACE */
     if (RESTRICT_LOOPBACK) {
         char* interface = "lo"; // Interface to send packet through.
         struct ifreq ifr;

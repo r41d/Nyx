@@ -18,6 +18,7 @@ static void send_empty_ack_packet(tcp_conn_t* con);
 static void send_synack_packet(tcp_conn_t* con);
 static int fd_set_blocking(int fd, int blocking);
 static void raw2payload_shoveling(int fd, void* payload, size_t payload_len);
+int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len);
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -92,20 +93,18 @@ int tcp_handshake(int fd) {
             printf("GOT PAYLOAD DURING HANDSHAKE\n");
         }
         if (tcp_head != NULL) {
+            printf("Now setting remote_ipaddr and remote_port...\n");
             con->remote_ipaddr = ipv4_head->src_addr;
             con->remote_port = tcp_head->src_port;
             handle_tcp_header(con, tcp_head);
         }
     } while (con->state != ESTABLISHED);
 
-    printf("HANDSHAKING DONE!\n");
-
-printf(" _   _    _    _   _ ____  ____  _   _    _    _  _____ _   _  ____   ____   ___  _   _ _____ ");
-printf("| | | |  / \\  | \\ | |  _ \\/ ___|| | | |  / \\  | |/ /_ _| \\ | |/ ___| |  _ \\ / _ \\| \\ | | ____|");
-printf("| |_| | / _ \\ |  \\| | | | \\___ \\| |_| | / _ \\ | ' / | ||  \\| | |  _  | | | | | | |  \\| |  _|  ");
-printf("|  _  |/ ___ \\| |\\  | |_| |___) |  _  |/ ___ \\| . \\ | || |\\  | |_| | | |_| | |_| | |\\  | |___ ");
-printf("|_| |_/_/   \\_\\_| \\_|____/|____/|_| |_/_/   \\_\\_|\\_\\___|_| \\_|\\____| |____/ \\___/|_| \\_|_____|");
-
+    printf(" _   _    _    _   _ ____  ____  _   _    _    _  _____ _   _  ____   ____   ___  _   _ _____ ");
+    printf("| | | |  / \\  | \\ | |  _ \\/ ___|| | | |  / \\  | |/ /_ _| \\ | |/ ___| |  _ \\ / _ \\| \\ | | ____|");
+    printf("| |_| | / _ \\ |  \\| | | | \\___ \\| |_| | / _ \\ | ' / | ||  \\| | |  _  | | | | | | |  \\| |  _|  ");
+    printf("|  _  |/ ___ \\| |\\  | |_| |___) |  _  |/ ___ \\| . \\ | || |\\  | |_| | | |_| | |_| | |\\  | |___ ");
+    printf("|_| |_/_/   \\_\\_| \\_|____/|____/|_| |_/_/   \\_\\_|\\_\\___|_| \\_|\\____| |____/ \\___/|_| \\_|_____|");
 
     return 0;
 }
@@ -254,7 +253,7 @@ static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, 
         // do the ip thing
         deserialize_ipv4(ipv4_head, pkg);
         printf("Got an IPv4 header:\n");
-        dump_ipv4_header(ipv4_head);
+        // dump_ipv4_header(ipv4_head);
         *ipv4_head_p = ipv4_head;
 
         // do the tcp thing
@@ -303,17 +302,28 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
     if (tcp_head == NULL)
         return -1;
 
+    if (tcp_head->src_port != con->remote_port || tcp_head->dest_port != con->local_port) {
+        printf("TCP packet doesn't look like it's for us! (ports %d->%d)\n", tcp_head->src_port, tcp_head->dest_port);
+        return -1;
+    }
+
     int ret = 0;
+
+    con->last_flag_recv = NOTHING;
 
     // set last_flag_recv according to flags
     if (tcp_head->syn && tcp_head->ack)
         con->last_flag_recv = SYNACK;
     else if (tcp_head->fin && tcp_head->ack)
         con->last_flag_recv = FINACK;
-    else if (tcp_head->syn)
+    else if (tcp_head->syn) {
+        printf("SETTING SYN!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         con->last_flag_recv = SYN;
-    else if (tcp_head->fin)
+    }
+    else if (tcp_head->fin) {
+        printf("SETTING ACK!!!!!!!!!!!!!!!!!!!YEAH!!!!BABY!!!!!!!!!!!!!!!\n");
         con->last_flag_recv = FIN;
+    }
     else if (tcp_head->ack)
         con->last_flag_recv = ACK;
 
@@ -328,7 +338,6 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
 
     if (con->flag_to_be_send == SYNACK) {
         // we just went from LISTEN to SYN_RECEIVED, we now need to send a SYNACK
-        printf("HERE I WILL SEND A SYNACK!!!!!\n");
         send_synack_packet(con);
         con->flag_to_be_send = NOTHING;
     }
@@ -360,74 +369,75 @@ static void send_empty_ack_packet(tcp_conn_t* con) {
     printf("sending empty ack...\n");
 
     //ipv4_header_t* ack_ip_head =
-    //    assemble_ipv4_header(20, con->local_ipaddr, con->remote_ipaddr);
+    //    assemble_ipv4_header(IPV4_HEADER_BASE_LENGTH, con->local_ipaddr, con->remote_ipaddr);
     //char* ipbuf = malloc(IPV4_HEADER_BASE_LENGTH);
     //serialize_ipv4(ipbuf, ack_ip_head);
+    //free(ack_ip_head);
+    //write_to_raw_socket(con, ipbuf, IPV4_HEADER_BASE_LENGTH);
+    //free(ipbuf);
 
     tcp_header_t* ack_tcp_head =
         assemble_tcp_header(con->local_port, con->remote_port,
                             con->local_seq_num, con->next_ack_num_to_send,
                             ACK, (4 << 8) << 2); // Receive Window = 4 kilobyte
-    char* buf = malloc(TCP_HEADER_BASE_LENGTH);
-    serialize_tcp(buf, ack_tcp_head);
-
-    // write the ack tcp header to raw socket
-    // we only need to send the tcp header, IP is taken care of
-    //write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
-    write_to_raw_socket(con, buf, TCP_HEADER_BASE_LENGTH);
-
+    char* tcpbuf = malloc(TCP_HEADER_BASE_LENGTH);
+    serialize_tcp(tcpbuf, ack_tcp_head);
     free(ack_tcp_head);
-    free(buf);
+    write_to_raw_socket(con, tcpbuf, TCP_HEADER_BASE_LENGTH);
+    free(tcpbuf);
+
 }
 
 static void send_synack_packet(tcp_conn_t* con) {
-    printf("sending SYNACK...\n");
+    printf("SENDING SYNACK!!\n");
 
-    tcp_header_t* ack_tcp_head =
+    //ipv4_header_t* synack_ip_head =
+    //    assemble_ipv4_header(IPV4_HEADER_BASE_LENGTH, con->local_ipaddr, con->remote_ipaddr);
+    //char* ipbuf = malloc(IPV4_HEADER_BASE_LENGTH);
+    //serialize_ipv4(ipbuf, synack_ip_head);
+    //free(synack_ip_head);
+    // dump_ipv4_header(synack_ip_head);
+    //write_to_raw_socket(con, ipbuf, IPV4_HEADER_BASE_LENGTH);
+    //free(ipbuf);
+
+    tcp_header_t* synack_tcp_head =
         assemble_tcp_header(con->local_port, con->remote_port,
                             con->local_seq_num, con->next_ack_num_to_send,
                             SYNACK, (4 << 8) << 2); // Receive Window = 4 kilobyte
-    char* buf = malloc(TCP_HEADER_BASE_LENGTH);
-    serialize_tcp(buf, ack_tcp_head);
-
-    dump_tcp_header(ack_tcp_head);
-
-    // write the ack tcp header to raw socket
-    // we only need to send the tcp header, IP is taken care of
-    //write(con->fd, buf, TCP_HEADER_BASE_LENGTH);
-    write_to_raw_socket(con, buf, TCP_HEADER_BASE_LENGTH);
-
-    free(ack_tcp_head);
-    free(buf);
+    char* tcpbuf = malloc(TCP_HEADER_BASE_LENGTH);
+    serialize_tcp(tcpbuf, synack_tcp_head);
+    free(synack_tcp_head);
+    dump_tcp_header(synack_tcp_head);
+    write_to_raw_socket(con, tcpbuf, TCP_HEADER_BASE_LENGTH);
+    free(tcpbuf);
 
     printf("SENT SYNACK PACKET...\n");
 }
 
 int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len) {
-
-    if(sendto(con->fd,                       // our socket
+    int n;
+    if ((n=sendto(con->fd,                   // our socket
               datagram,                      // the buffer containing headers and data
               dgram_len,                     // total length of our datagram
               0,                             // routing flags, normally always 0
               (struct sockaddr *) &con->sin, // socket addr, just like in
-              sizeof(con->sin)) < 0)         // a normal send()
-       printf("sendto() error!!!.\n");
+              sizeof(con->sin))) < 0)        // a normal send()
+        printf("sendto() error!!!\n");
     else
-      printf("sendto() success\n");
+        printf("sendto() success\n");
 
+    return n;
 }
 
 tcp_conn_t* fetch_con_by_fd(int fd) {
-    //printf("fetching con by fd\n");
     tcp_conn_t* aux;
     for (aux = TCPMGR.connections; aux != NULL; aux = aux->next) {
         if (aux->fd == fd) {
-            //printf("Returning con %d\n", aux->fd);
             return aux;
         }
     }
     printf("CON NOT FOUND!\n");
-    return NULL; // no result was found
+    return NULL;
 }
 
 /** http://code.activestate.com/recipes/577384-setting-a-file-descriptor-to-blocking-or-non-block/

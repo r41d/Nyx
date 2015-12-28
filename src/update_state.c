@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "tcp_manager.h"
 #include "update_state.h"
 
@@ -10,10 +11,12 @@ static void update_listen(tcp_conn_t* conn) {
 }
 
 static void update_syn_received(tcp_conn_t* conn) {
+    printf("update_syn_received: last_flag_recv=%d\n", conn->last_flag_recv);
     if (conn->last_flag_recv == I_WANT_TO_CLOSE) {
         conn->flag_to_be_send = FIN;
         conn->newstate = FIN_WAIT_1;
     } else if (conn->last_flag_recv == ACK) { // ACK of SYN
+        printf("SETTING ESTABLISHED AS NEWSTATE!!!!!!!!!!!!!!!!!!!\n");
         conn->flag_to_be_send = NOTHING;
         conn->newstate = ESTABLISHED;
     }
@@ -85,6 +88,7 @@ static void update_closed(tcp_conn_t* conn) {
 }
 
 void update_state(tcp_conn_t* conn) {
+    printf("update_state call in state %d\n", conn->state);
     switch (conn->state) {
         case LISTEN:
             update_listen(conn);

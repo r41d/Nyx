@@ -15,10 +15,8 @@ void serialize_uint32(char* buffer, uint32_t arg) {
 }
 
 void serialize_uint16(char* buffer, uint16_t arg) {
-    printf("serialize_uint16 start\n");
     buffer[1] = (uint8_t) (arg >> 8);
     buffer[0] = (uint8_t) (arg);
-    printf("serialize_uint16 end\n");
 }
 
 void serialize_tcp(char* buf, const tcp_header_t* header) {
@@ -39,9 +37,13 @@ void serialize_tcp(char* buf, const tcp_header_t* header) {
              | header->rst << 2
              | header->syn << 1
              | header->fin;
-    buf[14] = htons(header->window);
-    buf[16] = htons(header->checksum);
-    buf[18] = htons(header->urgent_pointer);
+    // buf[14] = htons(header->window);
+    serialize_uint16(buf+14, header->window);
+    // buf[16] = htons(header->checksum);
+    serialize_uint16(buf+16, header->checksum);
+    // buf[18] = htons(header->urgent_pointer);
+    serialize_uint16(buf+18, header->urgent_pointer);
+
 	// optional
     int options_len = header->data_offset*4 - 20;
     if (options_len > 0) {
