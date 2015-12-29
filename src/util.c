@@ -4,15 +4,14 @@
 
 int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len) {
     int n;
-    if ((n=sendto(con->fd,                   // our socket
-              datagram,                      // the buffer containing headers and data
-              dgram_len,                     // total length of our datagram
-              0,                             // routing flags, normally always 0
-              (struct sockaddr *) &con->sin, // socket addr, just like in
-              sizeof(con->sin))) < 0)        // a normal send()
+    n = sendto(con->fd,                       // our socket
+              datagram,                       // the buffer containing headers and data
+              dgram_len,                      // total length of our datagram
+              0,                              // routing flags, normally always 0
+              (struct sockaddr *) &con->sin,  // socket addr, just like in
+              sizeof(con->sin));              // a normal send()
+    if (n < 0)
         printf("sendto() error!!!\n");
-    else
-        printf("sendto() success\n");
 
     return n;
 }

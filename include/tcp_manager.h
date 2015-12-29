@@ -35,13 +35,13 @@ typedef enum {
 
 typedef struct tcp_conn_t {
     int fd;
-    uint32_t local_ipaddr;
-    uint16_t local_port;
+    uint32_t local_ipaddr;  // this is in host byte order
+    uint16_t local_port;    // this is in host byte order
 
-    uint32_t remote_ipaddr;
-    uint16_t remote_port;
+    uint32_t remote_ipaddr; // this is in host byte order
+    uint16_t remote_port;   // this is in host byte order
 
-    struct sockaddr_in sin; // sockaddr_in struct for sending
+    struct sockaddr_in sin; // sockaddr_in struct for sending. This is in network byte order
 
     tcp_conn_state_t state;
     tcp_conn_state_t newstate;
