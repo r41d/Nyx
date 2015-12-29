@@ -3,22 +3,20 @@
 #include <unistd.h> // read()
 #include <sys/types.h> // ssize_t
 #include <netinet/in.h> // ntohs()
-#include <fcntl.h> // fcntl()
 #include <errno.h>
 #include "tcp_manager.h"
 #include "ipv4.h"
 #include "tcp.h"
 #include "buffer_queue.h"
 #include "update_state.h"
+#include "util.h"
 
 static uint16_t read_raw_socket(tcp_conn_t* con);
-static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head);
+static int handle_tcp_header(tcp_conn_t* con, ipv4_header_t* ipv4_head, tcp_header_t* tcp_head);
 static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, tcp_header_t** tcp_head_p, void** payload);
 static void send_empty_ack_packet(tcp_conn_t* con);
 static void send_synack_packet(tcp_conn_t* con);
-static int fd_set_blocking(int fd, int blocking);
 static void raw2payload_shoveling(int fd, void* payload, size_t payload_len);
-int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len);
 
 tcp_state_t TCPMGR; // global TCP manager instance
 
@@ -93,10 +91,7 @@ int tcp_handshake(int fd) {
             printf("GOT PAYLOAD DURING HANDSHAKE\n");
         }
         if (tcp_head != NULL) {
-            printf("Now setting remote_ipaddr and remote_port...\n");
-            con->remote_ipaddr = ipv4_head->src_addr;
-            con->remote_port = tcp_head->src_port;
-            handle_tcp_header(con, tcp_head);
+            handle_tcp_header(con, ipv4_head, tcp_head);
         }
     } while (con->state != ESTABLISHED);
 
@@ -143,7 +138,7 @@ int tcp_manager_read(int fd, void* buf, size_t count) {
         if (tcp_head != NULL && con->state)
 
         // here the state transitioning (and stuff) is done
-        handle_tcp_header(con, tcp_head);
+        handle_tcp_header(con, ipv4_head, tcp_head);
 
         if (con->state == ESTABLISHED) {
             if (payload_bytes_available)
@@ -197,7 +192,7 @@ static uint16_t read_raw_socket(tcp_conn_t* con) {
         if (rcvd > 0) {
             // printf("read_raw_socket: %d: %x\n", rcvd, rawbuf);
             // fwrite(rawbuf, rcvd, 1, stdout);
-            printf("Enqueueing %zu bytes into raw_read_queue\n", rcvd);
+            //printf("Enqueueing %zu bytes into raw_read_queue\n", rcvd);
             buffer_queue_enqueue(&con->raw_read_queue, rawbuf, rcvd);
             total += rcvd;
         }
@@ -215,7 +210,7 @@ static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, 
     *tcp_head_p = NULL;
     *payload = NULL;
 
-    printf("tcp manager process raw queue\n");
+    // printf("tcp manager process raw queue\n");
 
     int ret;
 
@@ -225,9 +220,9 @@ static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, 
     }
 
     //size_t buffer_queue_top(buffer_queue_t* q, void* dest, size_t length);
-    printf("mallocing checkbuf\n");
+    // printf("mallocing checkbuf\n");
     void* checkbuf = malloc(IPV4_HEADER_BASE_LENGTH);
-    printf("buffer queue top -> checkbuf\n");
+    // printf("buffer queue top -> checkbuf\n");
     size_t got = buffer_queue_top(&con->raw_read_queue, checkbuf, IPV4_HEADER_BASE_LENGTH);
 
     if (got < IPV4_HEADER_BASE_LENGTH) {
@@ -252,15 +247,15 @@ static uint16_t process_raw_queue(tcp_conn_t* con, ipv4_header_t** ipv4_head_p, 
 
         // do the ip thing
         deserialize_ipv4(ipv4_head, pkg);
-        printf("Got an IPv4 header:\n");
-        // dump_ipv4_header(ipv4_head);
+        //printf("Got an IPv4 header:\n");
+        //dump_ipv4_header(ipv4_head);
         *ipv4_head_p = ipv4_head;
 
         // do the tcp thing
         tcp_header_t* tcp_head = malloc(sizeof(tcp_header_t));
         deserialize_tcp(tcp_head, pkg + (ipv4_head->ihl << 2));
-        printf("Got a TCP header\n");
-        dump_tcp_header(tcp_head);
+        //printf("Got a TCP header\n");
+        //dump_tcp_header(tcp_head);
         *tcp_head_p = tcp_head;
 
         // determine if we have any payload and return the amount of bytes it has
@@ -297,13 +292,15 @@ static void raw2payload_shoveling(int fd, void* payload, size_t payload_len) {
     }
 }
 
-static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
+static int handle_tcp_header(tcp_conn_t* con, ipv4_header_t* ipv4_head, tcp_header_t* tcp_head) {
 
     if (tcp_head == NULL)
         return -1;
 
-    if (tcp_head->src_port != con->remote_port || tcp_head->dest_port != con->local_port) {
-        printf("TCP packet doesn't look like it's for us! (ports %d->%d)\n", tcp_head->src_port, tcp_head->dest_port);
+    if (con->state != LISTEN // still listening
+        && (tcp_head->src_port != con->remote_port || tcp_head->dest_port != con->local_port)) // or alrady initialized
+    {
+        printf("TCP packet doesn't look like it's for us! (%d->%d)\n", tcp_head->src_port, tcp_head->dest_port);
         return -1;
     }
 
@@ -342,9 +339,15 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
         con->flag_to_be_send = NOTHING;
     }
 
+    if (con->state == LISTEN && con->remote_port == 0 && con->remote_ipaddr == 0) {
+        printf("Now setting remote_ipaddr and remote_port...\n");
+        con->remote_ipaddr = ipv4_head->src_addr;
+        con->remote_port = tcp_head->src_port;
+    }
 
     // new the new state the actual state
-    printf("Changing state from %u to %u\n", con->state, con->newstate);
+    if (con->state != con->newstate)
+        printf("Changing state from %u to %u\n", con->state, con->newstate);
     con->state = con->newstate;
 
     // after this, state and newstate are the same
@@ -353,13 +356,10 @@ static int handle_tcp_header(tcp_conn_t* con, tcp_header_t* tcp_head) {
 }
 
 int tcp_manager_write(int fd, void* buf, size_t count) {
-
-
     return -1;
 }
 
 int tcp_manager_close(int fd) {
-
     return -1;
 }
 
@@ -407,26 +407,11 @@ static void send_synack_packet(tcp_conn_t* con) {
     char* tcpbuf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(tcpbuf, synack_tcp_head);
     free(synack_tcp_head);
-    dump_tcp_header(synack_tcp_head);
+    //dump_tcp_header(synack_tcp_head);
     write_to_raw_socket(con, tcpbuf, TCP_HEADER_BASE_LENGTH);
     free(tcpbuf);
 
     printf("SENT SYNACK PACKET...\n");
-}
-
-int write_to_raw_socket(tcp_conn_t* con, void* datagram, size_t dgram_len) {
-    int n;
-    if ((n=sendto(con->fd,                   // our socket
-              datagram,                      // the buffer containing headers and data
-              dgram_len,                     // total length of our datagram
-              0,                             // routing flags, normally always 0
-              (struct sockaddr *) &con->sin, // socket addr, just like in
-              sizeof(con->sin))) < 0)        // a normal send()
-        printf("sendto() error!!!\n");
-    else
-        printf("sendto() success\n");
-
-    return n;
 }
 
 tcp_conn_t* fetch_con_by_fd(int fd) {
@@ -438,27 +423,4 @@ tcp_conn_t* fetch_con_by_fd(int fd) {
     }
     printf("CON NOT FOUND!\n");
     return NULL;
-}
-
-/** http://code.activestate.com/recipes/577384-setting-a-file-descriptor-to-blocking-or-non-block/
- *
- * Set a file descriptor to blocking or non-blocking mode.
- *
- * @param fd The file descriptor
- * @param blocking 0:non-blocking mode, 1:blocking mode
- *
- * @return 1:success, 0:failure.
- **/
-static int fd_set_blocking(int fd, int blocking) {
-    /* Save the current flags */
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1)
-        return 0;
-
-    if (blocking)
-        flags &= ~O_NONBLOCK;
-    else
-        flags |= O_NONBLOCK;
-
-    return (fcntl(fd, F_SETFL, flags) != -1);
 }

@@ -88,7 +88,6 @@ static void update_closed(tcp_conn_t* conn) {
 }
 
 void update_state(tcp_conn_t* conn) {
-    printf("update_state call in state %d\n", conn->state);
     switch (conn->state) {
         case LISTEN:
             update_listen(conn);

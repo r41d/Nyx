@@ -27,8 +27,8 @@ void serialize_tcp(char* buf, const tcp_header_t* header) {
     serialize_uint16(buf+2, htons(header->dest_port));
     //buf[2] = htons(header->dest_port);
 
-    buf[4] = htonl(header->seq_num);
-    buf[8] = htonl(header->ack_num);
+    serialize_uint32(buf+4, htonl(header->seq_num));
+    serialize_uint32(buf+8, htonl(header->ack_num));
     buf[12] = header->data_offset << 4;
     buf[13] = 0b00000000
              | header->urg << 5

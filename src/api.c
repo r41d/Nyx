@@ -4,7 +4,6 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <arpa/inet.h> // inet_aton()
-
 #include <sys/ioctl.h> // SIOCGIFINDEX
 #include <net/if.h> // ifreq
 
@@ -25,12 +24,15 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
     int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
     //int raw_fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW); // IPPROTO_RAW = we need to also do IPv4 on our own
     printf("Got raw fd: %d %s\n", raw_fd, strerror(errno));
+    if (raw_fd < 0)
+        exit(1);
 
     if (SET_IP_HDRINCL) {
         // we want to do the header on our own
         int tmp = 1;
         const int *val = &tmp;
-        if (setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp)) < 0) {
+        s = setsockopt(raw_fd, IPPROTO_IP, IP_HDRINCL, val, sizeof(tmp));
+        if (s < 0) {
             printf("Error: setsockopt() - Cannot set HDRINCL!\n");
             exit(-1);
         }
@@ -46,6 +48,8 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
         myaddr.sin_addr.s_addr = htonl(ipaddress);
         s = bind(raw_fd, (struct sockaddr *) &myaddr, sizeof(struct sockaddr_in));
         printf("bind(): %d\n", s);
+        if (s < 0)
+            exit(1);
     }
 
     /* RESTRICT SOCKET TO LOCAL LOOPBACK INTERFACE */
@@ -57,7 +61,9 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
         ioctl(raw_fd, SIOCGIFINDEX, &ifr); // Use ioctl() to look up interface index which we will use to
         //printf("Index for interface %s is %i\n", interface, ifr.ifr_ifindex);
         printf("Binding raw socket to interface %s\n", interface);
-        setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)); // bind socket descriptor fd to specified interface with setsockopt()
+        s = setsockopt(raw_fd, SOL_SOCKET, SO_BINDTODEVICE, &ifr, sizeof(ifr)); // bind socket descriptor fd to specified interface with setsockopt()
+        if (s < 0)
+            exit(1);
     }
 
     // remember this particular connection in our TCP state
@@ -65,6 +71,7 @@ int nyx_accept(uint16_t port, uint32_t ipaddress) {
 
     // initiate three-way handshake (ONLY THE SERVER SIDE)
     int handshake = tcp_handshake(raw_fd);
+    printf("HANDSHAKE: %d", handshake);
 
     return raw_fd;
 }
