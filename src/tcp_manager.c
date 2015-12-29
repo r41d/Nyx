@@ -333,16 +333,16 @@ static int handle_tcp_header(tcp_conn_t* con, ipv4_header_t* ipv4_head, tcp_head
     // update the state according to TCP FSA (see update_state.h)
     update_state(con);
 
-    if (con->flag_to_be_send == SYNACK) {
-        // we just went from LISTEN to SYN_RECEIVED, we now need to send a SYNACK
-        send_synack_packet(con);
-        con->flag_to_be_send = NOTHING;
-    }
-
     if (con->state == LISTEN && con->remote_port == 0 && con->remote_ipaddr == 0) {
         printf("Now setting remote_ipaddr and remote_port...\n");
         con->remote_ipaddr = ipv4_head->src_addr;
         con->remote_port = tcp_head->src_port;
+    }
+
+    if (con->flag_to_be_send == SYNACK) {
+        // we just went from LISTEN to SYN_RECEIVED, we now need to send a SYNACK
+        send_synack_packet(con);
+        con->flag_to_be_send = NOTHING;
     }
 
     // new the new state the actual state
@@ -407,7 +407,7 @@ static void send_synack_packet(tcp_conn_t* con) {
     char* tcpbuf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(tcpbuf, synack_tcp_head);
     free(synack_tcp_head);
-    //dump_tcp_header(synack_tcp_head);
+    dump_tcp_header(synack_tcp_head);
     write_to_raw_socket(con, tcpbuf, TCP_HEADER_BASE_LENGTH);
     free(tcpbuf);
 
