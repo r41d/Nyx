@@ -14,7 +14,7 @@
 
 bool SET_IP_HDRINCL = false;
 bool BINDING = true;
-bool RESTRICT_LOOPBACK = false;
+bool RESTRICT_LOOPBACK = true;
 
 
 int nyx_accept(uint16_t port, uint32_t ipaddress) {

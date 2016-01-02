@@ -27,15 +27,9 @@ static int prepare_socket(char* host, int port) {
     printf("Connecting...\n");
 	st = connect(sockfd, (struct sockaddr*) &server_addr, sizeof(struct sockaddr));
 	if (st < 0)
-        exit(1);
+        exit(2);
     printf("Connected to %d:%d\n", server_addr.sin_addr.s_addr, server_addr.sin_port);
 
-	return 0;
-}
-
-static int close_socket() {
-	if (close(sockfd) < 0)
-		exit(1);
 	return 0;
 }
 
@@ -46,14 +40,20 @@ static int send_test() {
 
 	st = write(sockfd, buf, sizeof buf);
 	if (st < 0)
-		exit(1);
+		exit(3);
 
-	return (st>0) ? 1 : 0 ;
+	return (st!=0) ? 1 : 0 ;
+}
+
+static int close_socket() {
+	if (close(sockfd) != 0)
+		exit(4);
+	return 0;
 }
 
 int main(int argc, char** argv) {
 
-	char* server = "127.0.0.2";
+	char* server = "127.0.0.1";
 	int port = 4711;
 
 	prepare_socket(server, port);
