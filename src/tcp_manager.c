@@ -406,8 +406,8 @@ static void send_synack_packet(tcp_conn_t* con) {
                             SYNACK, (4 << 8) << 2); // Receive Window = 4 kilobyte
     char* tcpbuf = malloc(TCP_HEADER_BASE_LENGTH);
     serialize_tcp(tcpbuf, synack_tcp_head);
-    free(synack_tcp_head);
     dump_tcp_header(synack_tcp_head);
+    free(synack_tcp_head);
     write_to_raw_socket(con, tcpbuf, TCP_HEADER_BASE_LENGTH);
     free(tcpbuf);
 

@@ -56,9 +56,9 @@ int main(int argc, char** argv) {
 	char* server = "127.0.0.2";
 	int port = 4711;
 
-    prepare_socket(server, port);
+	prepare_socket(server, port);
 	send_test();
-    close_socket();
+	close_socket();
 
 	return 0;
 }
